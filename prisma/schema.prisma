@@ -1,0 +1,251 @@
+// AppBrick — Modelo de datos
+// Grupo Brick, Chihuahua. App interna de trámites, avances y costos.
+//
+// Nota sobre SQLite: no soporta enums nativos. Los campos de tipo "estado",
+// "etapa", "categoria", etc. son String y sus valores válidos viven en
+// src/lib/constants.ts como uniones de TypeScript. Al migrar a Postgres
+// (Supabase) se pueden convertir a enums reales sin tocar la app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// La URL de conexión ya no vive aquí (Prisma 7): se define en prisma.config.ts.
+// Para migrar a Supabase se cambia el provider a "postgresql" y el adapter
+// en prisma.config.ts. El resto del schema no se toca.
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Personas: usuarios de la app y actores del negocio
+// ---------------------------------------------------------------------------
+
+/// Quien entra a la app. Por ahora Erick y su asistente.
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nombre       String
+  /// "admin" | "asistente"
+  rol          String   @default("asistente")
+  passwordHash String?
+  activo       Boolean  @default(true)
+  creadoEn     DateTime @default(now())
+
+  tramitesActualizados Tramite[] @relation("TramiteActualizadoPor")
+  gastosRegistrados    Gasto[]   @relation("GastoRegistradoPor")
+}
+
+/// Cualquier persona del negocio: vendedor, comprador, socio, contratista,
+/// notario, valuador. Se guarda una sola vez y se liga a las propiedades
+/// donde participa, porque la misma persona reaparece entre operaciones.
+model Persona {
+  id       String  @id @default(cuid())
+  nombre   String
+  telefono String?
+  email    String?
+  curp     String?
+  rfc      String?
+  nss      String?
+  notas    String?
+
+  participaciones PropiedadPersona[]
+  gastosPagados   Gasto[]            @relation("GastoPagadoPor")
+
+  creadoEn DateTime @default(now())
+
+  @@index([nombre])
+}
+
+/// Liga persona <-> propiedad con el papel que juega en ESA operación.
+/// La misma persona puede ser vendedora en una casa y socia en otra.
+model PropiedadPersona {
+  id          String @id @default(cuid())
+  propiedadId String
+  personaId   String
+  /// "vendedor" | "comprador" | "socio" | "contratista" | "notario" | "valuador" | "otro"
+  rol         String
+  /// Solo para socios: % de participación en el proyecto.
+  porcentaje  Float?
+  notas       String?
+
+  propiedad Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+  persona   Persona   @relation(fields: [personaId], references: [id], onDelete: Cascade)
+
+  @@unique([propiedadId, personaId, rol])
+  @@index([propiedadId])
+}
+
+// ---------------------------------------------------------------------------
+// Propiedades — la tabla base de la que cuelga todo
+// ---------------------------------------------------------------------------
+
+model Propiedad {
+  id       String  @id @default(cuid())
+  /// Como le dices tú: "Sierra la Escondida", "Turmalina".
+  nombre   String
+  direccion String?
+  colonia   String?
+  ciudad    String  @default("Chihuahua")
+
+  /// "prospecto" | "adquisicion" | "remodelacion" | "en_venta" | "en_tramite" | "escriturando" | "concluida" | "cancelada"
+  etapa String @default("prospecto")
+  /// "casa" | "terreno" | "departamento" | "local"
+  tipo  String @default("casa")
+
+  /// Dónde viven los PDFs. Se guardan ambas: la carpeta local de Windows
+  /// y (si algún día se sincroniza a Drive) el link compartible.
+  carpetaLocal String?
+  carpetaDrive String?
+
+  // Dinero. Todo en MXN.
+  valorCompra        Float?
+  valorVentaEstimado Float?
+  valorVentaReal     Float?
+  presupuestoObra    Float?
+
+  fechaCompra DateTime?
+  fechaVenta  DateTime?
+
+  /// Cuándo se prometió cerrar. Alimenta el semáforo de atorados.
+  fechaCierreObjetivo DateTime?
+
+  notas String?
+
+  tramites    Tramite[]
+  gastos      Gasto[]
+  presupuesto PartidaPresupuesto[]
+  personas    PropiedadPersona[]
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([etapa])
+}
+
+// ---------------------------------------------------------------------------
+// Expediente: catálogo maestro de 34 documentos + su estado por propiedad
+// ---------------------------------------------------------------------------
+
+/// Los 34 documentos del expediente Infonavit, en 8 bloques (A-H).
+/// Es catálogo fijo: se siembra una vez y rara vez cambia.
+model TramiteCatalogo {
+  id     String @id @default(cuid())
+  /// 1..34 — la numeración que ya usas para nombrar los archivos.
+  numero Int    @unique
+  /// "A".."H"
+  bloque String
+  /// "Vendedor", "Comprador / Derechohabiente", ...
+  bloqueNombre String
+  nombre String
+
+  /// true si el trámite tiene ciclo a=documento / b=orden de cobro / c=comprobante
+  /// (los municipales). Habilita los tres checks en la UI.
+  requierePago Boolean @default(false)
+
+  /// true si el documento solo aplica en ciertos casos (ej. acta de matrimonio).
+  opcional Boolean @default(false)
+
+  /// Ayuda contextual: dónde se saca, cuánto tarda, cuánto cuesta.
+  dondeSeTramita String?
+  notasAyuda     String?
+
+  tramites Tramite[]
+
+  @@index([bloque])
+}
+
+/// El estado real de un documento para UNA propiedad. Esto es lo que
+/// reemplaza al Excel muerto: se actualiza desde el celular.
+model Tramite {
+  id          String @id @default(cuid())
+  propiedadId String
+  catalogoId  String
+
+  /// "falta" | "revisar" | "completo" | "no_aplica"
+  estado String @default("falta")
+
+  // El ciclo a/b/c de los trámites municipales.
+  docRecibido    Boolean @default(false)
+  ordenDeCobro   Boolean @default(false)
+  pagoComprobado Boolean @default(false)
+
+  /// Lo que costó el trámite. Si se llena, se refleja como gasto.
+  costo Float?
+
+  /// Nombre del archivo dentro de la carpeta de la propiedad,
+  /// ej. "21a - Constancia de zonificacion Sierra la Escondida.pdf"
+  archivo String?
+  /// Link directo si la carpeta está en Drive.
+  archivoUrl String?
+
+  /// Quién trae la bola: "Erick", "Poncho (valuador)", "Notaría 29"...
+  responsable String?
+  fechaLimite DateTime?
+  fechaHecho  DateTime?
+
+  notas String?
+
+  propiedad       Propiedad       @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+  catalogo        TramiteCatalogo @relation(fields: [catalogoId], references: [id])
+  actualizadoPor  Usuario?        @relation("TramiteActualizadoPor", fields: [actualizadoPorId], references: [id])
+  actualizadoPorId String?
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@unique([propiedadId, catalogoId])
+  @@index([propiedadId, estado])
+  @@index([fechaLimite])
+}
+
+// ---------------------------------------------------------------------------
+// Dinero: gastos reales y presupuesto por categoría
+// ---------------------------------------------------------------------------
+
+/// Un movimiento de salida, igual que tu Gastos.xlsx pero ligado a la propiedad.
+/// El campo pagadoPor es el que permite llevar la cuenta entre socios.
+model Gasto {
+  id          String   @id @default(cuid())
+  propiedadId String
+  fecha       DateTime
+  descripcion String
+  /// Ver CATEGORIAS_GASTO en src/lib/constants.ts
+  categoria   String
+  /// "efectivo" | "transferencia" | "tdc" | "tdd" | "cheque"
+  metodo      String
+  monto       Float
+
+  /// Quién puso el dinero. Es la base de la cuenta entre socios.
+  pagadoPor   Persona? @relation("GastoPagadoPor", fields: [pagadoPorId], references: [id])
+  pagadoPorId String?
+
+  /// Nombre o link del comprobante dentro de la carpeta.
+  comprobante    String?
+  comprobanteUrl String?
+
+  notas String?
+
+  propiedad      Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+  registradoPor  Usuario?  @relation("GastoRegistradoPor", fields: [registradoPorId], references: [id])
+  registradoPorId String?
+
+  creadoEn DateTime @default(now())
+
+  @@index([propiedadId, fecha])
+  @@index([categoria])
+}
+
+/// Cuánto se PENSABA gastar en cada categoría. Contra los gastos reales
+/// da la desviación, que es lo que te dice si el margen sigue vivo.
+model PartidaPresupuesto {
+  id          String @id @default(cuid())
+  propiedadId String
+  categoria   String
+  monto       Float
+  notas       String?
+
+  propiedad Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+
+  @@unique([propiedadId, categoria])
+}

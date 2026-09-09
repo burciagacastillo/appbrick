@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/* Identidad Grupo Brick: navy 1F3864 y gold, los mismos de tus decks. */
+@theme {
+  --color-brick-950: #0e1b33;
+  --color-brick-900: #16294d;
+  --color-brick-800: #1f3864;
+  --color-brick-700: #2b4a80;
+  --color-brick-600: #3a5f9e;
+  --color-brick-100: #dfe7f5;
+  --color-brick-50: #f2f6fc;
+
+  --color-gold-600: #a67c1f;
+  --color-gold-500: #c9a227;
+  --color-gold-400: #e0bd4e;
+  --color-gold-100: #f7edcd;
+}
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #16294d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0e1b33;
+    --foreground: #e8edf7;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Tipografía tabular para columnas de dinero: los pesos alinean. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
