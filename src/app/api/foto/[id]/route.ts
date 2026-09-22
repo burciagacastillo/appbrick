@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { leer } from "@/lib/almacen";
+import { tipoReal, esImagen } from "@/lib/tipos-archivo";
 
 // Fotos del catálogo público. Esto SÍ se sirve sin sesión — es lo único.
 // Por eso solo entrega fotos de propiedades marcadas como publicadas: una
@@ -28,19 +29,17 @@ export async function GET(
     return NextResponse.json({ error: "No existe" }, { status: 404 });
   }
 
-  const extension = foto.archivo.toLowerCase().split(".").pop();
-  const tipos: Record<string, string> = {
-    jpg: "image/jpeg",
-    jpeg: "image/jpeg",
-    png: "image/png",
-    webp: "image/webp",
-    heic: "image/heic",
-  };
+  // El tipo sale de los bytes, no de la extensión del archivo guardado.
+  const real = tipoReal(contenido);
+  if (!real || !esImagen(real.tipo)) {
+    return NextResponse.json({ error: "No existe" }, { status: 404 });
+  }
 
   return new NextResponse(new Uint8Array(contenido), {
     headers: {
-      "Content-Type": tipos[extension ?? ""] ?? "application/octet-stream",
+      "Content-Type": real.tipo,
       "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

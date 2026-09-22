@@ -8,10 +8,10 @@
 // Es idempotente: se puede volver a correr sin duplicar nada.
 
 import "dotenv/config";
-import { readdirSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOGO } from "./catalogo";
 import { escanearCarpeta } from "../src/lib/escaner";
+import { listarArchivosDe } from "../src/lib/almacen";
 import { crearPrisma } from "../src/lib/db";
 
 const prisma = crearPrisma();
@@ -63,17 +63,6 @@ const PENDIENTES: {
     notas: "Compradores: Edgar y Maira. Avalúo con Poncho.",
   },
 ];
-
-function listarArchivos(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => {
-    try {
-      return statSync(join(dir, f)).isFile();
-    } catch {
-      return false;
-    }
-  });
-}
 
 async function sembrarCatalogo() {
   for (const item of CATALOGO) {
@@ -132,7 +121,7 @@ async function sembrarPropiedades() {
 
   for (const p of PENDIENTES) {
     const rutaAbs = join(BRICK_ROOT, p.carpeta);
-    const archivos = listarArchivos(rutaAbs);
+    const archivos = listarArchivosDe(rutaAbs);
     const escaneo = escanearCarpeta(archivos, conCicloDePago);
 
     const propiedad = await prisma.propiedad.upsert({

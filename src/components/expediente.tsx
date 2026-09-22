@@ -1,5 +1,5 @@
 import { cambiarEstadoTramite, alternarSubdoc, guardarDetalleTramite } from "@/acciones/propiedades";
-import { Badge } from "./ui";
+import { Badge, CLASE_CAMPO } from "./ui";
 import { ESTADOS_TRAMITE, BLOQUES, mxn, fechaCorta } from "@/lib/constants";
 import type { PropiedadDetalle } from "@/lib/queries";
 
@@ -66,9 +66,34 @@ function FilaTramite({ t }: { t: Tramite }) {
             {t.costo ? <span>· {mxn(t.costo)}</span> : null}
           </div>
 
-          {t.archivo ? (
+          {/* Archivos subidos por el comprador o por ti, abribles desde aquí.
+              Antes había que ir a la bandeja de revisión, y una vez aprobado
+              el documento ya no estaba ahí. */}
+          {t.documentos.length > 0 ? (
+            <ul className="mt-1.5 space-y-1">
+              {t.documentos.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center gap-2 text-xs">
+                  <a
+                    href={`/api/documento/${d.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate font-mono text-brick-700 hover:underline dark:text-gold-400"
+                    title={d.nombreArchivo}
+                  >
+                    {d.nombreArchivo}
+                  </a>
+                  {d.estado === "pendiente" ? <Badge color="amber">Sin revisar</Badge> : null}
+                  {d.estado === "rechazado" ? <Badge color="rose">Rechazado</Badge> : null}
+                  {d.vigenciaHasta && d.vigenciaHasta < new Date() ? (
+                    <Badge color="rose">Vencido</Badge>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : t.archivo ? (
             <p className="mt-1 truncate font-mono text-xs text-slate-400" title={t.archivo}>
               {t.archivo}
+              <span className="ml-2 not-italic text-slate-400">(en tu carpeta)</span>
             </p>
           ) : null}
 
@@ -99,7 +124,7 @@ function FilaTramite({ t }: { t: Tramite }) {
                   name="responsable"
                   defaultValue={t.responsable ?? ""}
                   placeholder="Erick, Poncho, Notaría 29…"
-                  className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900"
+                  className={CLASE_CAMPO}
                 />
               </label>
               <label className="text-xs">
@@ -110,7 +135,7 @@ function FilaTramite({ t }: { t: Tramite }) {
                   defaultValue={
                     t.fechaLimite ? t.fechaLimite.toISOString().slice(0, 10) : ""
                   }
-                  className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900"
+                  className={CLASE_CAMPO}
                 />
               </label>
               <label className="text-xs">
@@ -128,7 +153,7 @@ function FilaTramite({ t }: { t: Tramite }) {
                 <input
                   name="notas"
                   defaultValue={t.notas ?? ""}
-                  className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900"
+                  className={CLASE_CAMPO}
                 />
               </label>
               {t.catalogo.notasAyuda ? (

@@ -1,8 +1,9 @@
 import {
   createCipheriv,
   createDecipheriv,
-  randomBytes,
   createHash,
+  createHmac,
+  randomBytes,
   timingSafeEqual,
 } from "node:crypto";
 
@@ -23,7 +24,15 @@ const ALGORITMO = "aes-256-gcm";
 const LARGO_IV = 12; // 96 bits, lo recomendado para GCM
 const LARGO_TAG = 16;
 
-function obtenerLlave(): Buffer {
+/**
+ * Deriva una llave distinta para cada propósito a partir del mismo secreto.
+ *
+ * POR QUÉ: si cifrado y firma de sesiones compartieran la misma llave,
+ * rotarla por una fuga de sesiones dejaría ilegibles todas las contraseñas de
+ * Infonavit guardadas. Con subllaves, cada uso es independiente aunque el
+ * secreto raíz sea uno solo.
+ */
+export function subllave(proposito: "cifrado" | "sesion"): Buffer {
   const secreto = process.env.APPBRICK_LLAVE_CIFRADO;
   if (!secreto) {
     throw new Error(
@@ -35,8 +44,11 @@ function obtenerLlave(): Buffer {
       "APPBRICK_LLAVE_CIFRADO es muy corta. Genera una con: npm run llave"
     );
   }
-  // Derivamos 32 bytes fijos del secreto, sea cual sea su largo.
-  return createHash("sha256").update(secreto).digest();
+  return createHmac("sha256", secreto).update(proposito).digest();
+}
+
+function obtenerLlave(): Buffer {
+  return subllave("cifrado");
 }
 
 /**

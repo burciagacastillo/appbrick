@@ -6,8 +6,8 @@
 // solo queda su hash con scrypt, del que no se puede volver atrás.
 import "dotenv/config";
 import { createInterface } from "node:readline";
-import { crearPrisma } from "../src/lib/db";
-import { hashearPassword } from "../src/lib/sesion";
+import { crearPrisma } from "../../src/lib/db";
+import { hashearPassword } from "../../src/lib/sesion";
 
 const db = crearPrisma();
 

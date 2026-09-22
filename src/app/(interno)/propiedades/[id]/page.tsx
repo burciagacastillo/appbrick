@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { obtenerPropiedad } from "@/lib/queries";
-import { Card, CardHeader, EtapaBadge, Barra } from "@/components/ui";
+import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
 import { TablaGastos } from "@/components/gastos";
 import { Publicacion } from "@/components/publicacion";
@@ -18,8 +18,6 @@ const TABS = [
   { id: "publicar", label: "Publicar" },
 ] as const;
 
-const inputCls =
-  "mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900";
 
 export default async function DetallePropiedad({
   params,
@@ -131,19 +129,19 @@ export default async function DetallePropiedad({
 
             <label className="text-xs">
               <span className="text-slate-500">Nombre</span>
-              <input name="nombre" defaultValue={p.nombre} required className={inputCls} />
+              <input name="nombre" defaultValue={p.nombre} required className={CLASE_CAMPO} />
             </label>
             <label className="text-xs">
               <span className="text-slate-500">Dirección</span>
-              <input name="direccion" defaultValue={p.direccion ?? ""} className={inputCls} />
+              <input name="direccion" defaultValue={p.direccion ?? ""} className={CLASE_CAMPO} />
             </label>
             <label className="text-xs">
               <span className="text-slate-500">Colonia</span>
-              <input name="colonia" defaultValue={p.colonia ?? ""} className={inputCls} />
+              <input name="colonia" defaultValue={p.colonia ?? ""} className={CLASE_CAMPO} />
             </label>
             <label className="text-xs">
               <span className="text-slate-500">Etapa</span>
-              <select name="etapa" defaultValue={p.etapa} className={inputCls}>
+              <select name="etapa" defaultValue={p.etapa} className={CLASE_CAMPO}>
                 {ETAPAS.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.label}
@@ -153,7 +151,7 @@ export default async function DetallePropiedad({
             </label>
             <label className="text-xs">
               <span className="text-slate-500">Tipo</span>
-              <select name="tipo" defaultValue={p.tipo} className={inputCls}>
+              <select name="tipo" defaultValue={p.tipo} className={CLASE_CAMPO}>
                 {TIPOS_PROPIEDAD.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
@@ -171,7 +169,7 @@ export default async function DetallePropiedad({
                     ? p.fechaCierreObjetivo.toISOString().slice(0, 10)
                     : ""
                 }
-                className={inputCls}
+                className={CLASE_CAMPO}
               />
             </label>
 
@@ -182,7 +180,7 @@ export default async function DetallePropiedad({
                 step="0.01"
                 name="valorCompra"
                 defaultValue={p.valorCompra ?? ""}
-                className={`${inputCls} tabular`}
+                className={`${CLASE_CAMPO} tabular`}
               />
             </label>
             <label className="text-xs">
@@ -192,7 +190,7 @@ export default async function DetallePropiedad({
                 step="0.01"
                 name="valorVentaEstimado"
                 defaultValue={p.valorVentaEstimado ?? ""}
-                className={`${inputCls} tabular`}
+                className={`${CLASE_CAMPO} tabular`}
               />
             </label>
             <label className="text-xs">
@@ -202,7 +200,7 @@ export default async function DetallePropiedad({
                 step="0.01"
                 name="valorVentaReal"
                 defaultValue={p.valorVentaReal ?? ""}
-                className={`${inputCls} tabular`}
+                className={`${CLASE_CAMPO} tabular`}
               />
             </label>
             <label className="text-xs">
@@ -212,7 +210,7 @@ export default async function DetallePropiedad({
                 step="0.01"
                 name="presupuestoObra"
                 defaultValue={p.presupuestoObra ?? ""}
-                className={`${inputCls} tabular`}
+                className={`${CLASE_CAMPO} tabular`}
               />
             </label>
 
@@ -224,7 +222,7 @@ export default async function DetallePropiedad({
                 name="carpetaDrive"
                 defaultValue={p.carpetaDrive ?? ""}
                 placeholder="https://drive.google.com/..."
-                className={inputCls}
+                className={CLASE_CAMPO}
               />
             </label>
             <label className="text-xs sm:col-span-2">
@@ -233,7 +231,7 @@ export default async function DetallePropiedad({
                 name="notas"
                 defaultValue={p.notas ?? ""}
                 rows={3}
-                className={inputCls}
+                className={CLASE_CAMPO}
               />
             </label>
 

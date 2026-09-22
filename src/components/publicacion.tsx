@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { CLASE_CAMPO } from "@/components/ui";
 import {
   subirFotos,
   eliminarFoto,
@@ -38,8 +39,6 @@ type Props = {
   };
 };
 
-const input =
-  "mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900";
 
 function Interruptor({
   name,
@@ -200,7 +199,7 @@ export function Publicacion({ propiedad: p }: Props) {
               name="tituloPublico"
               defaultValue={p.tituloPublico ?? p.nombre}
               placeholder="Casa en Praderas del Sur"
-              className={input}
+              className={CLASE_CAMPO}
             />
           </label>
 
@@ -211,7 +210,7 @@ export function Publicacion({ propiedad: p }: Props) {
               defaultValue={p.descripcionPublica ?? ""}
               rows={4}
               placeholder="Casa remodelada, recámara ampliada, piso de concreto…"
-              className={input}
+              className={CLASE_CAMPO}
             />
           </label>
 
@@ -222,7 +221,7 @@ export function Publicacion({ propiedad: p }: Props) {
               step="1"
               name="precioPublico"
               defaultValue={p.precioPublico ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
 
@@ -241,7 +240,7 @@ export function Publicacion({ propiedad: p }: Props) {
               type="number"
               name="recamaras"
               defaultValue={p.recamaras ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
           <label className="text-xs">
@@ -251,7 +250,7 @@ export function Publicacion({ propiedad: p }: Props) {
               step="0.5"
               name="banos"
               defaultValue={p.banos ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
           <label className="text-xs">
@@ -261,7 +260,7 @@ export function Publicacion({ propiedad: p }: Props) {
               step="0.01"
               name="m2Construccion"
               defaultValue={p.m2Construccion ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
           <label className="text-xs">
@@ -271,7 +270,7 @@ export function Publicacion({ propiedad: p }: Props) {
               step="0.01"
               name="m2Terreno"
               defaultValue={p.m2Terreno ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
           <label className="text-xs">
@@ -280,7 +279,7 @@ export function Publicacion({ propiedad: p }: Props) {
               type="number"
               name="cochera"
               defaultValue={p.cochera ?? ""}
-              className={`${input} tabular`}
+              className={`${CLASE_CAMPO} tabular`}
             />
           </label>
 

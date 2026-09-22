@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
-import { Card, CardHeader, Badge, Vacio } from "@/components/ui";
+import { Card, CardHeader, Badge, Vacio, CLASE_CAMPO } from "@/components/ui";
 import { fechaCorta } from "@/lib/constants";
 import { darAccesoAyudante, quitarAccesoAyudante } from "@/acciones/equipo";
 
@@ -32,9 +32,7 @@ export default async function Equipo() {
     }),
   ]);
 
-  const input =
-    "mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900";
-
+  
   return (
     <div className="space-y-6">
       <div>
@@ -115,7 +113,7 @@ export default async function Equipo() {
               <input type="hidden" name="usuarioId" value={a.id} />
               <label className="text-xs sm:col-span-2">
                 <span className="text-slate-500">Darle acceso a</span>
-                <select name="propiedadId" className={input} required>
+                <select name="propiedadId" className={CLASE_CAMPO} required>
                   {propiedades.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre}
@@ -130,7 +128,7 @@ export default async function Equipo() {
                   name="dias"
                   min="1"
                   placeholder="vacío = siempre"
-                  className={input}
+                  className={CLASE_CAMPO}
                 />
               </label>
               <div className="flex items-end">

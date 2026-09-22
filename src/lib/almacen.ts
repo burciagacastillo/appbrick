@@ -1,5 +1,7 @@
 import { mkdir, writeFile, readFile, unlink, access } from "node:fs/promises";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, extname, resolve, sep } from "node:path";
+import { tipoReal, esImagen, type TipoSeguro } from "./tipos-archivo";
 
 // Almacén de archivos.
 //
@@ -12,15 +14,6 @@ import { join, dirname, extname, resolve, sep } from "node:path";
 // cualquier ruta del .env, el empaquetador tiene que rastrear todo el proyecto
 // como posible destino de escritura.
 const RAIZ = join(process.cwd(), "almacen");
-
-/** Tipos que aceptamos. Cualquier otra cosa se rechaza sin guardarse. */
-export const TIPOS_PERMITIDOS: Record<string, string> = {
-  "application/pdf": ".pdf",
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/heic": ".heic",
-};
 
 /** 20 MB. Una foto de celular pesa 3-5 MB; un PDF escaneado rara vez más. */
 export const TAMANO_MAXIMO = 20 * 1024 * 1024;
@@ -132,24 +125,52 @@ export async function existe(rutaRelativa: string): Promise<boolean> {
   }
 }
 
-/** Valida tipo y tamaño antes de tocar el disco. Devuelve la extensión. */
+/**
+ * Valida un archivo subido. A diferencia de la versión anterior, NO confía en
+ * el mimeType que declara el navegador: lo deduce de los bytes.
+ * Devuelve el tipo verificado, que es el único que se debe guardar y servir.
+ */
 export function validarArchivo(
-  mimeType: string,
-  tamanoBytes: number
-): { ok: true; extension: string } | { ok: false; error: string } {
-  const extension = TIPOS_PERMITIDOS[mimeType];
-  if (!extension) {
-    return {
-      ok: false,
-      error: "Solo se aceptan PDF y fotos (JPG, PNG, WEBP, HEIC).",
-    };
+  contenido: Buffer,
+  opciones: { soloImagenes?: boolean } = {}
+):
+  | { ok: true; tipo: TipoSeguro; extension: string }
+  | { ok: false; error: string } {
+  if (contenido.length === 0) {
+    return { ok: false, error: "El archivo llegó vacío." };
   }
-  if (tamanoBytes > TAMANO_MAXIMO) {
+  if (contenido.length > TAMANO_MAXIMO) {
     const mb = Math.round(TAMANO_MAXIMO / 1024 / 1024);
     return { ok: false, error: `El archivo pasa de ${mb} MB.` };
   }
-  if (tamanoBytes === 0) {
-    return { ok: false, error: "El archivo llegó vacío." };
+
+  const real = tipoReal(contenido);
+  if (!real) {
+    return {
+      ok: false,
+      error: "Solo se aceptan PDF y fotos (JPG, PNG, WEBP).",
+    };
   }
-  return { ok: true, extension };
+
+  if (opciones.soloImagenes && !esImagen(real.tipo)) {
+    return { ok: false, error: "Para el catálogo solo se aceptan fotos, no PDF." };
+  }
+
+  return { ok: true, tipo: real.tipo, extension: real.extension };
+}
+
+/**
+ * Lista los archivos de una carpeta del disco. Vive aquí porque el seed y el
+ * re-escaneo la necesitan igual, y tenerla dos veces ya había empezado a
+ * divergir.
+ */
+export function listarArchivosDe(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => {
+    try {
+      return statSync(join(dir, f)).isFile();
+    } catch {
+      return false;
+    }
+  });
 }

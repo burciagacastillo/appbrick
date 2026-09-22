@@ -287,6 +287,8 @@ model Foto {
   archivo     String
   /// Texto alternativo, para accesibilidad y buscadores.
   alt         String?
+  /// SHA-256 del contenido: evita subir dos veces la misma foto del carrete.
+  hash        String?
   orden       Int     @default(0)
   esPortada   Boolean @default(false)
 

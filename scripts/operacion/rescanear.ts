@@ -9,25 +9,13 @@
 // re-escaneo no te lo va a deshacer.
 
 import "dotenv/config";
-import { readdirSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { crearPrisma } from "../src/lib/db";
-import { escanearCarpeta } from "../src/lib/escaner";
+import { crearPrisma } from "../../src/lib/db";
+import { escanearCarpeta } from "../../src/lib/escaner";
+import { listarArchivosDe } from "../../src/lib/almacen";
 
 const prisma = crearPrisma();
 
 const NIVEL = { falta: 0, revisar: 1, completo: 2, no_aplica: 3 } as const;
-
-function listarArchivos(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir).filter((f) => {
-    try {
-      return statSync(join(dir, f)).isFile();
-    } catch {
-      return false;
-    }
-  });
-}
 
 async function main() {
   const propiedades = await prisma.propiedad.findMany({
@@ -43,7 +31,7 @@ async function main() {
   console.log("\nRe-escaneo de carpetas\n");
 
   for (const p of propiedades) {
-    const archivos = listarArchivos(p.carpetaLocal!);
+    const archivos = listarArchivosDe(p.carpetaLocal!);
     if (archivos.length === 0) {
       console.log(`  ${p.nombre}: carpeta vacía o no encontrada — se omite`);
       continue;

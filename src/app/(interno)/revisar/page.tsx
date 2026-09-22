@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { Card, CardHeader, Badge, Vacio } from "@/components/ui";
 import { fechaCorta } from "@/lib/constants";
-import { aprobarDocumento, rechazarDocumento, corregirFecha } from "@/acciones/documentos";
+import { aprobarDocumento, corregirFecha } from "@/acciones/documentos";
+import { FormaRechazo } from "@/components/formularios";
 
 export const dynamic = "force-dynamic";
 
@@ -136,38 +137,11 @@ function Documento({ d }: { d: DocPendiente }) {
           </button>
         </form>
 
-        <details>
-          <summary className="cursor-pointer list-none rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-500/10">
-            ✗ Rechazar
-          </summary>
-          <form
-            action={rechazarDocumento}
-            className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-brick-700 dark:bg-brick-800"
-          >
-            <input type="hidden" name="documentoId" value={d.id} />
-            <p className="text-xs text-slate-500">
-              Esto es lo que va a leer {quien.split(" ")[0]} en su portal.
-            </p>
-            <input
-              name="motivo"
-              required
-              list={`motivos-${d.id}`}
-              placeholder="¿Por qué hay que volver a subirlo?"
-              className="mt-1.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900"
-            />
-            <datalist id={`motivos-${d.id}`}>
-              {MOTIVOS_RAPIDOS.map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
-            <button
-              type="submit"
-              className="mt-2 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700"
-            >
-              Rechazar y avisarle
-            </button>
-          </form>
-        </details>
+        <FormaRechazo
+          documentoId={d.id}
+          quien={quien.split(" ")[0]}
+          motivosRapidos={[...MOTIVOS_RAPIDOS]}
+        />
       </div>
     </li>
   );

@@ -4,6 +4,7 @@ import { usuarioActual } from "@/lib/sesion";
 import { puedeVerPropiedad } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { leer } from "@/lib/almacen";
+import { tipoParaServir } from "@/lib/tipos-archivo";
 
 // Entrega de un documento del expediente. NUNCA se sirven estos archivos
 // como estáticos: cada descarga pasa por aquí para verificar permiso y dejar
@@ -55,12 +56,22 @@ export async function GET(
     detalle: `${documento.nombreArchivo} — ${documento.propiedad.nombre}`,
   });
 
+  // Ni siquiera se confía en el tipo guardado: si algo se coló antes de que
+  // existiera la validación por bytes, se degrada a descarga binaria en vez
+  // de ejecutarse en el navegador.
+  const servir = tipoParaServir(documento.mimeType);
+  const disposicion = descargar || servir.forzarDescarga ? "attachment" : "inline";
+
   return new NextResponse(new Uint8Array(contenido), {
     headers: {
-      "Content-Type": documento.mimeType,
-      // inline: se abre en el navegador en vez de bajarse de golpe.
-      "Content-Disposition": `${descargar ? "attachment" : "inline"}; filename="${encodeURIComponent(documento.nombreArchivo)}"`,
+      "Content-Type": servir.contentType,
+      "Content-Disposition": `${disposicion}; filename="${encodeURIComponent(documento.nombreArchivo)}"`,
       "Cache-Control": "private, no-store",
+      // El navegador respeta el Content-Type que mandamos y no lo adivina.
+      "X-Content-Type-Options": "nosniff",
+      // Red de abajo: aunque un archivo lograra ser HTML, no puede ejecutar
+      // scripts ni alcanzar nuestro origen.
+      "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
     },
   });
 }

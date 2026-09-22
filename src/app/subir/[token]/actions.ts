@@ -14,6 +14,9 @@ import {
 
 export type ResultadoSubida = { ok: true; mensaje: string } | { ok: false; error: string };
 
+/** 7 documentos del bloque, con margen para correcciones y reintentos. */
+const MAXIMO_POR_INVITACION = 40;
+
 /**
  * Sube un documento desde el portal del invitado.
  *
@@ -49,10 +52,24 @@ export async function subirDocumento(
     return { ok: false, error: "No llegó ningún archivo. Inténtalo otra vez." };
   }
 
-  const validez = validarArchivo(archivo.type, archivo.size);
-  if (!validez.ok) return { ok: false, error: validez.error };
+  // Tope por invitación: sin esto, un link válido durante 60 días puede
+  // llenar el disco con archivos de 20 MB.
+  const yaSubidos = await db.documento.count({
+    where: { subidoPorInvitacionId: invitacion.id },
+  });
+  if (yaSubidos >= MAXIMO_POR_INVITACION) {
+    return {
+      ok: false,
+      error: "Ya subiste demasiados archivos. Habla con Erick para continuar.",
+    };
+  }
 
   const contenido = Buffer.from(await archivo.arrayBuffer());
+
+  // Se valida por los BYTES, no por el tipo que declara el navegador.
+  const validez = validarArchivo(contenido);
+  if (!validez.ok) return { ok: false, error: validez.error };
+
   const hash = hashArchivo(contenido);
 
   // Si ya subió exactamente el mismo archivo, no lo duplicamos.
@@ -92,7 +109,7 @@ export async function subirDocumento(
       nombreOriginal: archivo.name,
       nombreArchivo,
       ruta,
-      mimeType: archivo.type,
+      mimeType: validez.tipo,
       tamanoBytes: archivo.size,
       hash,
       estado: "pendiente",

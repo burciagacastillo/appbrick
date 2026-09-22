@@ -20,6 +20,8 @@ export type Accion =
   | "creo_invitacion"
   | "revoco_invitacion"
   | "acepto_aviso"
+  | "entro"
+  | "corrigio_fecha"
   | "vio_expediente";
 
 export type Entidad =
@@ -27,7 +29,8 @@ export type Entidad =
   | "tramite"
   | "persona"
   | "propiedad"
-  | "invitacion";
+  | "invitacion"
+  | "usuario";
 
 export async function registrar(evento: {
   tipoActor: TipoActor;

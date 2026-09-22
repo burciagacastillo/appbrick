@@ -47,7 +47,31 @@ devuelven la sesión — para que la página necesite ese valor y no se pueda
 El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 `/equipo`. El acceso puede tener fecha de vencimiento.
 
+## Pruebas
+
+`npm test` — 90 pruebas sobre lo que no se puede dejar sin red:
+
+| Archivo | Qué protege |
+|---|---|
+| `almacen.test.ts` | Que no se escriba fuera del almacén y que un HTML disfrazado de foto se rechace |
+| `escaner.test.ts` | Los tres bugs reales del escáner, como regresión |
+| `publico.test.ts` | Que ningún dato confidencial salga a internet |
+| `cripto.test.ts` | Cifrado, subllaves y hashing de contraseñas |
+| `limitador.test.ts` | El freno de fuerza bruta |
+| `acciones/sesion.test.ts` | Login contra la base real, incluido el bloqueo |
+
+Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
+contador y nunca frenaba; el esquema de login rechazaba correos internos
+(`maria@brick.local`) dejando fuera al equipo; y `"use client"` había quedado
+en la segunda línea de un componente, que deja de ser de cliente en silencio.
+
 ## Las tres reglas que no se rompen
+
+**0. Los archivos se identifican por sus BYTES, nunca por lo que declara quien
+los sube.** `src/lib/tipos-archivo.ts`. El `type` de un File lo controla el
+atacante: un .html con JavaScript etiquetado `image/jpeg`, servido `inline`,
+correría en nuestro origen con la sesión del admin. Al servirlos tampoco se
+confía en lo guardado, y van con `sandbox` y `nosniff`.
 
 **1. Nada confidencial sale a la cara pública.** `src/lib/publico.ts` tiene una
 **lista blanca**: enumera qué campos pueden salir. Lo que no esté escrito ahí no
@@ -132,16 +156,27 @@ igual al archivo. Banderas que importan:
 
 ```bash
 npm run dev        # servidor de desarrollo
+npm test           # las 90 pruebas
+npm run lint       # cero avisos; mantenerlo así
+npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente
 npm run db:seed    # carga inicial (idempotente)
 npm run llave      # genera la llave de cifrado
-npx tsx scripts/ver-estado.ts       # radiografía: documentos, bitácora, invitaciones
-npx tsx scripts/invitacion-demo.ts  # crea una invitación de prueba
-npx tsx scripts/probar-cripto.ts    # verifica el cifrado
+npm run estado     # radiografía: documentos, bitácora, invitaciones
 ```
 
-`npm run rescan` **nunca baja de nivel** lo marcado a mano. Evitar
-`npm run db:reset`: pide confirmación de Prisma y borra capturas reales.
+`scripts/operacion/` son las que se usan de verdad; `scripts/diagnostico/`
+solo leen. `npm run rescan` **nunca baja de nivel** lo marcado a mano.
+
+## Validación de entrada
+
+Todo formulario pasa por un esquema de Zod en `src/lib/esquemas.ts`. Los
+Server Actions son endpoints públicos: el `required` del HTML no protege nada,
+cualquiera con sesión puede mandar un FormData armado a mano.
+
+- `validar()` devuelve el error para enseñárselo al usuario.
+- `validarOTronar()` lanza, para formularios donde un dato inválido solo puede
+  venir de una petición manipulada.
 
 ## Convenciones
 
@@ -155,6 +190,8 @@ npx tsx scripts/probar-cripto.ts    # verifica el cifrado
 
 - **Segundo factor para el admin. Bloquea publicar.** Esa cuenta descifra las
   contraseñas de Infonavit; su contraseña sola no basta.
+- El limitador de intentos vive en memoria: al pasar a varias instancias hay
+  que moverlo a una tabla, o cada instancia llevará su propia cuenta.
 - Campos en la UI: estado civil, régimen matrimonial, empleo, notaría,
   referencias, saldo del crédito del vendedor. Ya están en el modelo.
 - Chatbot fase 2 (WhatsApp Business API).

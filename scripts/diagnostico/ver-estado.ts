@@ -1,6 +1,6 @@
 // Radiografía rápida de la base. Correr: npx tsx scripts/ver-estado.ts
 import "dotenv/config";
-import { crearPrisma } from "../src/lib/db";
+import { crearPrisma } from "../../src/lib/db";
 
 const db = crearPrisma();
 

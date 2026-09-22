@@ -116,3 +116,54 @@ export function Vacio({ children }: { children: ReactNode }) {
     <div className="px-4 py-8 text-center text-sm text-slate-500">{children}</div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Formularios
+// ---------------------------------------------------------------------------
+
+/**
+ * Estilo único de los campos. Estaba copiado como cadena suelta en 7 archivos
+ * —uno de ellos cuatro veces— así que cualquier ajuste visual había que
+ * repetirlo a mano en todos.
+ */
+export const CLASE_CAMPO =
+  "mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm " +
+  "focus:border-brick-600 focus:outline-none focus:ring-1 focus:ring-brick-600 " +
+  "dark:border-brick-700 dark:bg-brick-900";
+
+/** Campo con su etiqueta. `children` es el input, select o textarea. */
+export function Campo({
+  etiqueta,
+  nota,
+  className = "",
+  children,
+}: {
+  etiqueta: string;
+  nota?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={`block text-xs ${className}`}>
+      <span className="text-slate-500">{etiqueta}</span>
+      {children}
+      {nota ? <span className="mt-0.5 block text-slate-400">{nota}</span> : null}
+    </label>
+  );
+}
+
+/** Mensaje de error de un formulario, con el mismo aspecto en toda la app. */
+export function ErrorCampo({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+      {children}
+    </p>
+  );
+}
+
+/** Confirmación breve tras guardar. */
+export function Exito({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">{children}</p>
+  );
+}

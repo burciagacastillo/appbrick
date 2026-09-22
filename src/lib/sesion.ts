@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { db } from "./db";
+import { subllave } from "./cripto";
 
 const scrypt = promisify(scryptCb) as (
   clave: string,
@@ -49,14 +50,9 @@ export async function verificarPassword(
 
 // --- Cookie firmada --------------------------------------------------------
 
-function llaveFirma(): string {
-  const llave = process.env.APPBRICK_LLAVE_CIFRADO;
-  if (!llave) throw new Error("Falta APPBRICK_LLAVE_CIFRADO en el .env");
-  return llave;
-}
-
 function firmar(datos: string): string {
-  return createHmac("sha256", llaveFirma()).update(datos).digest("base64url");
+  // Subllave propia: rotar sesiones no debe tocar las contraseñas cifradas.
+  return createHmac("sha256", subllave("sesion")).update(datos).digest("base64url");
 }
 
 type Contenido = { usuarioId: string; expira: number };

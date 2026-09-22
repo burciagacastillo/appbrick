@@ -57,19 +57,19 @@ export async function subirFotos(
   const errores: string[] = [];
 
   for (const archivo of archivos) {
-    const validez = validarArchivo(archivo.type, archivo.size);
+    const contenido = Buffer.from(await archivo.arrayBuffer());
+
+    // Por bytes, y rechazando PDF: el catálogo solo lleva fotos.
+    const validez = validarArchivo(contenido, { soloImagenes: true });
     if (!validez.ok) {
       errores.push(`${archivo.name}: ${validez.error}`);
       continue;
     }
-    // Un PDF no es una foto de catálogo.
-    if (!archivo.type.startsWith("image/")) {
-      errores.push(`${archivo.name}: solo fotos, no PDF.`);
-      continue;
-    }
 
-    const contenido = Buffer.from(await archivo.arrayBuffer());
+    // La misma foto subida dos veces del carrete no se duplica.
     const hash = hashArchivo(contenido);
+    const repetida = await db.foto.findFirst({ where: { propiedadId, hash } });
+    if (repetida) continue;
 
     const nombre = limpiarNombre(
       `${aSlug(propiedad.nombre)}-${orden + 1}${validez.extension}`
@@ -80,6 +80,7 @@ export async function subirFotos(
       data: {
         propiedadId,
         archivo: ruta,
+        hash,
         // Nunca el nombre interno: puede traer el nombre del vendedor.
         alt: propiedad.tituloPublico ?? "Casa en venta",
         orden,
@@ -88,7 +89,6 @@ export async function subirFotos(
       },
     });
 
-    void hash;
     orden++;
     guardadas++;
   }

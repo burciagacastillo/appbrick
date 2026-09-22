@@ -2,43 +2,59 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { exigirAdmin } from "@/lib/permisos";
+import {
+  validar,
+  validarOTronar,
+  EsquemaEstadoTramite,
+  EsquemaSubdoc,
+  EsquemaDetalleTramite,
+  EsquemaGasto,
+  EsquemaPropiedad,
+} from "@/lib/esquemas";
+
+/**
+ * Invalida solo lo que de verdad cambió.
+ *
+ * Antes todas las acciones llamaban revalidatePath("/", "layout"), que tira el
+ * cache de TODA la app en cada clic. Con 4 propiedades no se nota; con 50 y el
+ * asistente trabajando en paralelo, cada marca de trámite recalcula todo.
+ */
+function refrescarPropiedad(propiedadId: string) {
+  revalidatePath(`/propiedades/${propiedadId}`);
+  revalidatePath("/propiedades");
+  revalidatePath("/");
+}
 
 /** Cambia el estado de un trámite: falta / revisar / completo / no_aplica. */
 export async function cambiarEstadoTramite(formData: FormData) {
-  const id = String(formData.get("tramiteId"));
-  const estado = String(formData.get("estado"));
+  const usuario = await exigirAdmin();
+  const { tramiteId, estado } = validarOTronar(EsquemaEstadoTramite, formData);
 
-  if (!["falta", "revisar", "completo", "no_aplica"].includes(estado)) {
-    throw new Error(`Estado inválido: ${estado}`);
-  }
-
-  await db.tramite.update({
-    where: { id },
+  const tramite = await db.tramite.update({
+    where: { id: tramiteId },
     data: {
       estado,
       // Marcar completo implica que el documento está; marcarlo en falta lo quita.
       docRecibido: estado === "completo" ? true : estado === "falta" ? false : undefined,
       fechaHecho: estado === "completo" ? new Date() : null,
+      actualizadoPorId: usuario.id,
     },
   });
 
-  revalidatePath("/", "layout");
+  refrescarPropiedad(tramite.propiedadId);
 }
 
 /** Prende o apaga uno de los tres checks del ciclo a/b/c. */
 export async function alternarSubdoc(formData: FormData) {
-  const id = String(formData.get("tramiteId"));
-  const campo = String(formData.get("campo"));
+  const usuario = await exigirAdmin();
+  const { tramiteId, campo } = validarOTronar(EsquemaSubdoc, formData);
 
-  if (!["docRecibido", "ordenDeCobro", "pagoComprobado"].includes(campo)) {
-    throw new Error(`Campo inválido: ${campo}`);
-  }
-
-  const actual = await db.tramite.findUnique({ where: { id } });
+  const actual = await db.tramite.findUnique({ where: { id: tramiteId } });
   if (!actual) throw new Error("Trámite no encontrado");
 
-  const nuevo = !actual[campo as "docRecibido" | "ordenDeCobro" | "pagoComprobado"];
-  const data: Record<string, unknown> = { [campo]: nuevo };
+  const nuevo = !actual[campo];
+  const data: Record<string, unknown> = { [campo]: nuevo, actualizadoPorId: usuario.id };
 
   // Si ya está el documento y el pago comprobado, el trámite se da por cerrado
   // solo. Es el 90% de los casos: no tienes que marcar dos cosas.
@@ -49,111 +65,119 @@ export async function alternarSubdoc(formData: FormData) {
     data.fechaHecho = new Date();
   }
 
-  await db.tramite.update({ where: { id }, data });
-  revalidatePath("/", "layout");
+  await db.tramite.update({ where: { id: tramiteId }, data });
+  refrescarPropiedad(actual.propiedadId);
 }
 
 /** Guarda responsable, fecha límite, costo y notas de un trámite. */
 export async function guardarDetalleTramite(formData: FormData) {
-  const id = String(formData.get("tramiteId"));
-  const responsable = String(formData.get("responsable") ?? "").trim();
-  const fechaLimite = String(formData.get("fechaLimite") ?? "").trim();
-  const costo = String(formData.get("costo") ?? "").trim();
-  const notas = String(formData.get("notas") ?? "").trim();
+  await exigirAdmin();
+  const d = validarOTronar(EsquemaDetalleTramite, formData);
 
-  await db.tramite.update({
-    where: { id },
+  const tramite = await db.tramite.update({
+    where: { id: d.tramiteId },
     data: {
-      responsable: responsable || null,
-      fechaLimite: fechaLimite ? new Date(`${fechaLimite}T12:00:00`) : null,
-      costo: costo ? Number(costo) : null,
-      notas: notas || null,
+      responsable: d.responsable,
+      fechaLimite: d.fechaLimite,
+      costo: d.costo,
+      notas: d.notas,
     },
   });
 
-  revalidatePath("/", "layout");
+  refrescarPropiedad(tramite.propiedadId);
 }
 
-/** Alta de un gasto. Es la captura más frecuente, por eso vive suelta. */
-export async function agregarGasto(formData: FormData) {
-  const propiedadId = String(formData.get("propiedadId"));
-  const fecha = String(formData.get("fecha"));
-  const descripcion = String(formData.get("descripcion") ?? "").trim();
-  const categoria = String(formData.get("categoria"));
-  const metodo = String(formData.get("metodo"));
-  const monto = Number(formData.get("monto"));
-  const pagadoPorNombre = String(formData.get("pagadoPor") ?? "").trim();
+export type ResultadoGasto = { ok: true } | { ok: false; error: string };
 
-  if (!descripcion) throw new Error("Falta la descripción del gasto");
-  if (!Number.isFinite(monto) || monto <= 0) throw new Error("El monto debe ser mayor a cero");
+/**
+ * Alta de un gasto.
+ *
+ * Sobre "quién pagó": antes se buscaba a la persona por nombre y, si existía
+ * una con ese nombre, se reutilizaba. Con dos "José García" —normal en este
+ * volumen— el segundo heredaba el CURP y el crédito del primero. Ahora, si hay
+ * más de una coincidencia, se avisa en vez de adivinar.
+ */
+export async function agregarGasto(
+  _previo: ResultadoGasto | null,
+  formData: FormData
+): Promise<ResultadoGasto> {
+  const usuario = await exigirAdmin();
 
-  // "Quién pagó" se escribe libre; si la persona no existe, se crea. Así no
-  // tienes que dar de alta gente antes de poder capturar un gasto.
+  const v = validar(EsquemaGasto, formData);
+  if (!v.ok) return { ok: false, error: v.error };
+  const d = v.datos;
+
   let pagadoPorId: string | null = null;
-  if (pagadoPorNombre) {
-    const existente = await db.persona.findFirst({
-      where: { nombre: pagadoPorNombre },
+  if (d.pagadoPor) {
+    const candidatos = await db.persona.findMany({
+      where: { nombre: d.pagadoPor },
+      select: { id: true },
     });
+
+    if (candidatos.length > 1) {
+      return {
+        ok: false,
+        error: `Hay varias personas llamadas "${d.pagadoPor}". Regístralo desde la ficha de la persona para no confundirlas.`,
+      };
+    }
+
     pagadoPorId =
-      existente?.id ??
-      (await db.persona.create({ data: { nombre: pagadoPorNombre } })).id;
+      candidatos[0]?.id ??
+      (await db.persona.create({ data: { nombre: d.pagadoPor } })).id;
   }
 
   await db.gasto.create({
     data: {
-      propiedadId,
-      fecha: fecha ? new Date(`${fecha}T12:00:00`) : new Date(),
-      descripcion,
-      categoria,
-      metodo,
-      monto,
+      propiedadId: d.propiedadId,
+      fecha: d.fecha ?? new Date(),
+      descripcion: d.descripcion,
+      categoria: d.categoria,
+      metodo: d.metodo,
+      monto: d.monto,
       pagadoPorId,
+      registradoPorId: usuario.id,
     },
   });
 
-  revalidatePath("/", "layout");
+  refrescarPropiedad(d.propiedadId);
+  revalidatePath("/gastos");
+  return { ok: true };
 }
 
 export async function eliminarGasto(formData: FormData) {
-  const id = String(formData.get("gastoId"));
-  await db.gasto.delete({ where: { id } });
-  revalidatePath("/", "layout");
+  await exigirAdmin();
+  const id = String(formData.get("gastoId") ?? "");
+  if (!id) return;
+
+  const gasto = await db.gasto.delete({ where: { id } });
+
+  refrescarPropiedad(gasto.propiedadId);
+  revalidatePath("/gastos");
 }
 
 /** Datos generales y valores de la propiedad. */
 export async function guardarPropiedad(formData: FormData) {
-  const id = String(formData.get("propiedadId"));
-
-  const num = (k: string) => {
-    const v = String(formData.get(k) ?? "").trim();
-    return v ? Number(v) : null;
-  };
-  const fecha = (k: string) => {
-    const v = String(formData.get(k) ?? "").trim();
-    return v ? new Date(`${v}T12:00:00`) : null;
-  };
-  const texto = (k: string) => {
-    const v = String(formData.get(k) ?? "").trim();
-    return v || null;
-  };
+  await exigirAdmin();
+  const d = validarOTronar(EsquemaPropiedad, formData);
 
   await db.propiedad.update({
-    where: { id },
+    where: { id: d.propiedadId },
     data: {
-      nombre: String(formData.get("nombre")).trim(),
-      direccion: texto("direccion"),
-      colonia: texto("colonia"),
-      etapa: String(formData.get("etapa")),
-      tipo: String(formData.get("tipo")),
-      valorCompra: num("valorCompra"),
-      valorVentaEstimado: num("valorVentaEstimado"),
-      valorVentaReal: num("valorVentaReal"),
-      presupuestoObra: num("presupuestoObra"),
-      fechaCierreObjetivo: fecha("fechaCierreObjetivo"),
-      carpetaDrive: texto("carpetaDrive"),
-      notas: texto("notas"),
+      nombre: d.nombre,
+      direccion: d.direccion,
+      colonia: d.colonia,
+      etapa: d.etapa,
+      tipo: d.tipo,
+      valorCompra: d.valorCompra,
+      valorVentaEstimado: d.valorVentaEstimado,
+      valorVentaReal: d.valorVentaReal,
+      presupuestoObra: d.presupuestoObra,
+      fechaCierreObjetivo: d.fechaCierreObjetivo,
+      carpetaDrive: d.carpetaDrive,
+      notas: d.notas,
     },
   });
 
-  revalidatePath("/", "layout");
+  refrescarPropiedad(d.propiedadId);
+  revalidatePath("/casas");
 }

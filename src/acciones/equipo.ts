@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { crearInvitacion } from "@/lib/invitaciones";
+import {
+  validar,
+  validarOTronar,
+  EsquemaAccesoAyudante,
+  EsquemaInvitar,
+} from "@/lib/esquemas";
 
 // Alta de accesos: a quién le dejas ver qué.
 // Todo exige admin — dar acceso a documentos de identidad de terceros no es
@@ -13,15 +19,16 @@ import { crearInvitacion } from "@/lib/invitaciones";
 /** Le da acceso a un ayudante sobre una propiedad. */
 export async function darAccesoAyudante(formData: FormData) {
   const admin = await exigirAdmin();
-  const usuarioId = String(formData.get("usuarioId"));
-  const propiedadId = String(formData.get("propiedadId"));
-  const dias = String(formData.get("dias") ?? "").trim();
+  const { usuarioId, propiedadId, dias } = validarOTronar(
+    EsquemaAccesoAyudante,
+    formData
+  );
 
   // Acceso temporal: si le pones días, se vence solo y no se te olvida quitarlo.
   let expiraEn: Date | null = null;
   if (dias) {
     expiraEn = new Date();
-    expiraEn.setDate(expiraEn.getDate() + Number(dias));
+    expiraEn.setDate(expiraEn.getDate() + dias);
   }
 
   await db.accesoAyudante.upsert({
@@ -46,7 +53,8 @@ export async function darAccesoAyudante(formData: FormData) {
       (expiraEn ? ` hasta ${expiraEn.toLocaleDateString("es-MX")}` : " (sin vencimiento)"),
   });
 
-  revalidatePath("/", "layout");
+  revalidatePath("/equipo");
+  revalidatePath("/ayudante");
 }
 
 export async function quitarAccesoAyudante(formData: FormData) {
@@ -70,7 +78,8 @@ export async function quitarAccesoAyudante(formData: FormData) {
     detalle: `Se le quitó acceso a ${acceso.usuario.nombre} sobre ${acceso.propiedad.nombre}`,
   });
 
-  revalidatePath("/", "layout");
+  revalidatePath("/equipo");
+  revalidatePath("/ayudante");
 }
 
 /**
@@ -78,24 +87,43 @@ export async function quitarAccesoAyudante(formData: FormData) {
  * Si la persona no existe todavía, se da de alta con nombre y teléfono: así
  * puedes mandar el link sin capturar antes un expediente completo.
  */
-export async function invitarPersona(formData: FormData) {
-  const admin = await exigirAdmin();
-  const propiedadId = String(formData.get("propiedadId"));
-  const rol = String(formData.get("rol")) as "comprador" | "vendedor";
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const telefono = String(formData.get("telefono") ?? "").trim();
+export type ResultadoInvitar = { ok: true } | { ok: false; error: string };
 
-  if (!nombre) throw new Error("Falta el nombre de la persona.");
-  if (rol !== "comprador" && rol !== "vendedor") {
-    throw new Error("El rol debe ser comprador o vendedor.");
+export async function invitarPersona(
+  _previo: ResultadoInvitar | null,
+  formData: FormData
+): Promise<ResultadoInvitar> {
+  const admin = await exigirAdmin();
+
+  const v = validar(EsquemaInvitar, formData);
+  if (!v.ok) return { ok: false, error: v.error };
+  const { propiedadId, rol, nombre, telefono } = v.datos;
+
+  // Identificar a la persona por nombre es peligroso: dos "José García" se
+  // fusionarían y el segundo heredaría el CURP y el crédito del primero.
+  // Con teléfono la coincidencia es fiable; sin él, se pide desambiguar.
+  let persona = telefono
+    ? await db.persona.findFirst({ where: { nombre, telefono } })
+    : null;
+
+  if (!persona) {
+    const mismoNombre = await db.persona.findMany({ where: { nombre } });
+
+    if (mismoNombre.length === 1 && !telefono) {
+      persona = mismoNombre[0];
+    } else if (mismoNombre.length > 1 && !telefono) {
+      return {
+        ok: false,
+        error: `Ya hay ${mismoNombre.length} personas llamadas "${nombre}". Pon su teléfono para no confundirlas.`,
+      };
+    } else {
+      persona = await db.persona.create({
+        data: { nombre, telefono: telefono ?? null },
+      });
+    }
   }
 
-  let persona = await db.persona.findFirst({ where: { nombre } });
-  if (!persona) {
-    persona = await db.persona.create({
-      data: { nombre, telefono: telefono || null },
-    });
-  } else if (telefono && !persona.telefono) {
+  if (telefono && !persona.telefono) {
     persona = await db.persona.update({
       where: { id: persona.id },
       data: { telefono },
@@ -115,7 +143,9 @@ export async function invitarPersona(formData: FormData) {
     creadaPor: admin.nombre,
   });
 
-  revalidatePath("/", "layout");
+  revalidatePath("/recordatorios");
+  revalidatePath(`/propiedades/${propiedadId}`);
+  return { ok: true };
 }
 
 export async function revocarInvitacion(formData: FormData) {
@@ -137,5 +167,5 @@ export async function revocarInvitacion(formData: FormData) {
     detalle: `${invitacion.persona.nombre} — ${invitacion.propiedad.nombre}`,
   });
 
-  revalidatePath("/", "layout");
+  revalidatePath("/recordatorios");
 }

@@ -9,22 +9,6 @@ export type Progreso = {
   porcentaje: number;
 };
 
-function calcularProgreso(
-  tramites: { estado: string }[]
-): Progreso {
-  const aplicables = tramites.filter((t) => t.estado !== "no_aplica");
-  const completos = aplicables.filter((t) => t.estado === "completo").length;
-  const revisar = aplicables.filter((t) => t.estado === "revisar").length;
-  const total = aplicables.length;
-  return {
-    total,
-    completos,
-    revisar,
-    faltan: total - completos - revisar,
-    porcentaje: total === 0 ? 0 : Math.round((completos / total) * 100),
-  };
-}
-
 /** Resumen de dinero de una propiedad: presupuestado vs. gastado. */
 export type ResumenDinero = {
   gastado: number;
@@ -34,32 +18,64 @@ export type ResumenDinero = {
   margen: number | null;
 };
 
+function armarProgreso(porEstado: Map<string, number>): Progreso {
+  const completos = porEstado.get("completo") ?? 0;
+  const revisar = porEstado.get("revisar") ?? 0;
+  const faltan = porEstado.get("falta") ?? 0;
+  const total = completos + revisar + faltan; // "no_aplica" queda fuera a propósito
+
+  return {
+    total,
+    completos,
+    revisar,
+    faltan,
+    porcentaje: total === 0 ? 0 : Math.round((completos / total) * 100),
+  };
+}
+
+/**
+ * Listado de propiedades con su avance y su dinero.
+ *
+ * Los conteos y las sumas los hace la base, no JavaScript. Antes se traían
+ * los 34 trámites y todos los gastos de CADA propiedad solo para contarlos:
+ * con 50 propiedades son ~1,700 filas cargadas a memoria para sacar un
+ * porcentaje.
+ */
 export async function listarPropiedades() {
-  const propiedades = await db.propiedad.findMany({
-    orderBy: [{ etapa: "asc" }, { nombre: "asc" }],
-    include: {
-      tramites: { select: { estado: true } },
-      gastos: { select: { monto: true } },
-      presupuesto: { select: { monto: true } },
-    },
-  });
+  const [propiedades, tramites, gastos, presupuestos] = await Promise.all([
+    db.propiedad.findMany({ orderBy: [{ etapa: "asc" }, { nombre: "asc" }] }),
+    db.tramite.groupBy({ by: ["propiedadId", "estado"], _count: { _all: true } }),
+    db.gasto.groupBy({ by: ["propiedadId"], _sum: { monto: true } }),
+    db.partidaPresupuesto.groupBy({ by: ["propiedadId"], _sum: { monto: true } }),
+  ]);
+
+  const conteos = new Map<string, Map<string, number>>();
+  for (const t of tramites) {
+    const m = conteos.get(t.propiedadId) ?? new Map<string, number>();
+    m.set(t.estado, t._count._all);
+    conteos.set(t.propiedadId, m);
+  }
+
+  const gastado = new Map(gastos.map((g) => [g.propiedadId, g._sum.monto ?? 0]));
+  const presupuestado = new Map(
+    presupuestos.map((p) => [p.propiedadId, p._sum.monto ?? 0])
+  );
 
   return propiedades.map((p) => {
-    const gastado = p.gastos.reduce((s, g) => s + g.monto, 0);
-    const presupuestado = p.presupuesto.reduce((s, b) => s + b.monto, 0);
-    const margen =
-      p.valorVentaEstimado != null && p.valorCompra != null
-        ? p.valorVentaEstimado - p.valorCompra - gastado
-        : null;
+    const gasto = gastado.get(p.id) ?? 0;
+    const presupuesto = presupuestado.get(p.id) ?? 0;
 
     return {
       ...p,
-      progreso: calcularProgreso(p.tramites),
+      progreso: armarProgreso(conteos.get(p.id) ?? new Map()),
       dinero: {
-        gastado,
-        presupuestado,
-        desviacion: gastado - presupuestado,
-        margen,
+        gastado: gasto,
+        presupuestado: presupuesto,
+        desviacion: gasto - presupuesto,
+        margen:
+          p.valorVentaEstimado != null && p.valorCompra != null
+            ? p.valorVentaEstimado - p.valorCompra - gasto
+            : null,
       } satisfies ResumenDinero,
     };
   });
@@ -72,7 +88,12 @@ export async function obtenerPropiedad(id: string) {
     where: { id },
     include: {
       tramites: {
-        include: { catalogo: true },
+        include: {
+          catalogo: true,
+          // Los archivos que subió el comprador, para poder abrirlos desde el
+          // expediente sin tener que ir a la bandeja de revisión.
+          documentos: { orderBy: { creadoEn: "desc" } },
+        },
         orderBy: { catalogo: { numero: "asc" } },
       },
       gastos: {
@@ -82,6 +103,11 @@ export async function obtenerPropiedad(id: string) {
       presupuesto: true,
       personas: { include: { persona: true } },
       fotos: { orderBy: [{ esPortada: "desc" }, { orden: "asc" }] },
+      invitaciones: {
+        where: { revocada: false },
+        include: { persona: true },
+        orderBy: { creadaEn: "desc" },
+      },
     },
   });
   if (!propiedad) return null;
@@ -89,9 +115,14 @@ export async function obtenerPropiedad(id: string) {
   const gastado = propiedad.gastos.reduce((s, g) => s + g.monto, 0);
   const presupuestado = propiedad.presupuesto.reduce((s, b) => s + b.monto, 0);
 
+  const porEstado = new Map<string, number>();
+  for (const t of propiedad.tramites) {
+    porEstado.set(t.estado, (porEstado.get(t.estado) ?? 0) + 1);
+  }
+
   return {
     ...propiedad,
-    progreso: calcularProgreso(propiedad.tramites),
+    progreso: armarProgreso(porEstado),
     dinero: {
       gastado,
       presupuestado,
@@ -109,23 +140,32 @@ export type PropiedadDetalle = NonNullable<Awaited<ReturnType<typeof obtenerProp
 /**
  * Los trámites que traen bandera roja, ordenados por urgencia.
  * Esto es el semáforo del tablero: lo que hay que empujar hoy.
+ *
+ * El filtro pesado lo hace la base: solo se traen los que ya cumplen alguna
+ * condición de alerta, en vez de los ~1,700 trámites para descartar casi todos.
  */
 export async function tramitesAtorados() {
   const hoy = new Date();
 
   const tramites = await db.tramite.findMany({
     where: {
-      estado: { in: ["falta", "revisar"] },
       propiedad: { etapa: { notIn: ["concluida", "cancelada"] } },
+      OR: [
+        { estado: "revisar" },
+        { fechaLimite: { lt: hoy }, estado: { in: ["falta", "revisar"] } },
+        // Orden de cobro pagada sin comprobante: dinero que ya salió.
+        { ordenDeCobro: true, pagoComprobado: false, estado: { not: "completo" } },
+      ],
     },
-    include: { catalogo: true, propiedad: { select: { id: true, nombre: true, etapa: true } } },
+    include: {
+      catalogo: true,
+      propiedad: { select: { id: true, nombre: true, etapa: true } },
+    },
   });
 
   return tramites
     .map((t) => {
       const vencido = t.fechaLimite != null && t.fechaLimite < hoy;
-      // Pagaste la orden de cobro pero nunca subiste el comprobante: es dinero
-      // que ya salió y trámite que sigue sin cerrar. Eso pesa más que un "falta".
       const pagoIncompleto = t.ordenDeCobro && !t.pagoComprobado;
 
       let prioridad = 0;
@@ -136,46 +176,74 @@ export async function tramitesAtorados() {
 
       return { ...t, vencido, pagoIncompleto, prioridad };
     })
-    .filter((t) => t.prioridad > 0)
     .sort((a, b) => b.prioridad - a.prioridad);
 }
 
 /** Cuánto ha puesto cada persona, en total y por propiedad. La cuenta entre socios. */
 export async function cuentaEntreSocios() {
-  const gastos = await db.gasto.findMany({
-    where: { pagadoPorId: { not: null } },
-    include: { pagadoPor: true, propiedad: { select: { id: true, nombre: true } } },
-  });
+  const [sumas, personas, propiedades] = await Promise.all([
+    db.gasto.groupBy({
+      by: ["pagadoPorId", "propiedadId"],
+      where: { pagadoPorId: { not: null } },
+      _sum: { monto: true },
+    }),
+    db.persona.findMany({ select: { id: true, nombre: true } }),
+    db.propiedad.findMany({ select: { id: true, nombre: true } }),
+  ]);
+
+  const nombrePersona = new Map(personas.map((p) => [p.id, p.nombre]));
+  const nombrePropiedad = new Map(propiedades.map((p) => [p.id, p.nombre]));
 
   const porPersona = new Map<
     string,
-    { nombre: string; total: number; porPropiedad: Map<string, { nombre: string; monto: number }> }
+    { nombre: string; total: number; porPropiedad: { nombre: string; monto: number }[] }
   >();
 
-  for (const g of gastos) {
-    if (!g.pagadoPor) continue;
-    const entry = porPersona.get(g.pagadoPor.id) ?? {
-      nombre: g.pagadoPor.nombre,
+  for (const s of sumas) {
+    if (!s.pagadoPorId) continue;
+    const monto = s._sum.monto ?? 0;
+
+    const entrada = porPersona.get(s.pagadoPorId) ?? {
+      nombre: nombrePersona.get(s.pagadoPorId) ?? "Desconocido",
       total: 0,
-      porPropiedad: new Map(),
+      porPropiedad: [],
     };
-    entry.total += g.monto;
-    const prop = entry.porPropiedad.get(g.propiedad.id) ?? {
-      nombre: g.propiedad.nombre,
-      monto: 0,
-    };
-    prop.monto += g.monto;
-    entry.porPropiedad.set(g.propiedad.id, prop);
-    porPersona.set(g.pagadoPor.id, entry);
+    entrada.total += monto;
+    entrada.porPropiedad.push({
+      nombre: nombrePropiedad.get(s.propiedadId) ?? "—",
+      monto,
+    });
+    porPersona.set(s.pagadoPorId, entrada);
   }
 
   return [...porPersona.values()]
     .map((p) => ({
-      nombre: p.nombre,
-      total: p.total,
-      porPropiedad: [...p.porPropiedad.values()].sort((a, b) => b.monto - a.monto),
+      ...p,
+      porPropiedad: p.porPropiedad.sort((a, b) => b.monto - a.monto),
     }))
     .sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Totales de gastos de TODO el negocio, por categoría.
+ *
+ * Antes la pantalla de gastos sumaba los 200 movimientos que mostraba y
+ * presentaba el resultado como si fuera el total. Con más de 200 movimientos
+ * —cosa de un año— reportaba de menos sin avisar.
+ */
+export async function totalesDeGastos() {
+  const [porCategoria, total] = await Promise.all([
+    db.gasto.groupBy({ by: ["categoria"], _sum: { monto: true } }),
+    db.gasto.aggregate({ _sum: { monto: true }, _count: { _all: true } }),
+  ]);
+
+  return {
+    ranking: porCategoria
+      .map((c) => ({ categoria: c.categoria, monto: c._sum.monto ?? 0 }))
+      .sort((a, b) => b.monto - a.monto),
+    total: total._sum.monto ?? 0,
+    cuantos: total._count._all,
+  };
 }
 
 /** Números de arriba del tablero. */
@@ -204,3 +272,98 @@ export async function resumenGeneral() {
     pagosSinComprobante: atorados.filter((t) => t.pagoIncompleto).length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Recordatorios
+// ---------------------------------------------------------------------------
+
+/** A los 3 días sin moverse, toca insistir. */
+export const DIAS_PARA_INSISTIR = 3;
+
+export type FilaRecordatorio = ReturnType<typeof armarRecordatorio>;
+
+type InvitacionConTodo = Awaited<ReturnType<typeof invitacionesActivas>>[number];
+
+async function invitacionesActivas() {
+  return db.invitacion.findMany({
+    where: { revocada: false },
+    include: {
+      persona: true,
+      propiedad: {
+        include: { tramites: { include: { catalogo: true, documentos: true } } },
+      },
+    },
+    orderBy: { creadaEn: "desc" },
+  });
+}
+
+/**
+ * Calcula el estado de una invitación: cuánto lleva entregado, qué tiene que
+ * corregir y qué tan urgente es picarle.
+ *
+ * Vive aquí y no dentro del componente porque es lógica de negocio: así se
+ * puede probar sin montar una pantalla.
+ */
+function armarRecordatorio(i: InvitacionConTodo, ahora: Date) {
+  const bloques = i.bloquesPermitidos.split(",").map((b) => b.trim());
+  const suyos = i.propiedad.tramites.filter(
+    (t) => bloques.includes(t.catalogo.bloque) && t.catalogo.loSubeInvitado
+  );
+
+  const entregados = suyos.filter((t) =>
+    t.documentos.some((d) => d.estado !== "rechazado")
+  ).length;
+
+  const rechazados = suyos.filter(
+    (t) =>
+      t.documentos.length > 0 &&
+      t.documentos.every((d) => d.estado === "rechazado")
+  ).length;
+
+  const faltan = suyos.length - entregados;
+  const porcentaje =
+    suyos.length === 0 ? 0 : Math.round((entregados / suyos.length) * 100);
+
+  const ultimaSubida =
+    i.propiedad.tramites
+      .flatMap((t) => t.documentos)
+      .filter((d) => d.subidoPorInvitacionId === i.id)
+      .map((d) => d.creadoEn)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+
+  const referencia = ultimaSubida ?? i.ultimoAcceso ?? i.creadaEn;
+  const diasSinMoverse = Math.floor(
+    (ahora.getTime() - referencia.getTime()) / 86_400_000
+  );
+
+  const nuncaAbrio = i.vecesUsada === 0;
+  const vencido = i.expiraEn != null && i.expiraEn < ahora;
+
+  let urgencia = 0;
+  if (faltan > 0 && nuncaAbrio) urgencia += 100; // ni siquiera entró
+  if (rechazados > 0) urgencia += 60; // tiene que corregir algo
+  if (faltan > 0 && diasSinMoverse >= DIAS_PARA_INSISTIR) urgencia += 40;
+  if (vencido) urgencia += 30;
+
+  return {
+    invitacion: i,
+    total: suyos.length,
+    entregados,
+    faltan,
+    rechazados,
+    porcentaje,
+    diasSinMoverse,
+    nuncaAbrio,
+    vencido,
+    urgencia,
+  };
+}
+
+export async function recordatorios(ahora = new Date()) {
+  const invitaciones = await invitacionesActivas();
+  return invitaciones
+    .map((i) => armarRecordatorio(i, ahora))
+    .sort((a, b) => b.urgencia - a.urgencia);
+}
+
+export { armarRecordatorio };
