@@ -77,30 +77,36 @@ function listarArchivos(dir: string): string[] {
 
 async function sembrarCatalogo() {
   for (const item of CATALOGO) {
+    // Mismos campos para crear y actualizar: el catálogo es fuente de verdad
+    // en código, así que re-sembrar siempre lo deja igual al archivo.
+    const campos = {
+      bloque: item.bloque,
+      bloqueNombre: item.bloqueNombre,
+      nombre: item.nombre,
+      requierePago: item.requierePago ?? false,
+      opcional: item.opcional ?? false,
+      esDato: item.esDato ?? false,
+      loSubeInvitado: item.loSubeInvitado ?? false,
+      vigenciaDias: item.vigenciaDias ?? null,
+      dondeSeTramita: item.dondeSeTramita ?? null,
+      notasAyuda: item.notasAyuda ?? null,
+      ayudaInvitado: item.ayudaInvitado ?? null,
+    };
+
     await prisma.tramiteCatalogo.upsert({
       where: { numero: item.numero },
-      update: {
-        bloque: item.bloque,
-        bloqueNombre: item.bloqueNombre,
-        nombre: item.nombre,
-        requierePago: item.requierePago ?? false,
-        opcional: item.opcional ?? false,
-        dondeSeTramita: item.dondeSeTramita ?? null,
-        notasAyuda: item.notasAyuda ?? null,
-      },
-      create: {
-        numero: item.numero,
-        bloque: item.bloque,
-        bloqueNombre: item.bloqueNombre,
-        nombre: item.nombre,
-        requierePago: item.requierePago ?? false,
-        opcional: item.opcional ?? false,
-        dondeSeTramita: item.dondeSeTramita ?? null,
-        notasAyuda: item.notasAyuda ?? null,
-      },
+      update: campos,
+      create: { numero: item.numero, ...campos },
     });
   }
-  console.log(`  Catálogo: ${CATALOGO.length} trámites`);
+
+  const suben = CATALOGO.filter((c) => c.loSubeInvitado).length;
+  const datos = CATALOGO.filter((c) => c.esDato).length;
+  const caducan = CATALOGO.filter((c) => c.vigenciaDias).length;
+  console.log(
+    `  Catálogo: ${CATALOGO.length} trámites · ${suben} los sube el invitado · ` +
+      `${datos} son datos · ${caducan} caducan`
+  );
 }
 
 async function sembrarUsuarios() {

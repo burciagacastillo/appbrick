@@ -44,3 +44,6 @@ next-env.d.ts
 dev.db
 dev.db-journal
 *.db-journal
+
+# Archivos subidos por compradores y vendedores
+almacen/

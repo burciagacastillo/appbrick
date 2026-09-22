@@ -1,4 +1,4 @@
-import { agregarGasto, eliminarGasto } from "@/app/propiedades/actions";
+import { agregarGasto, eliminarGasto } from "@/acciones/propiedades";
 import { Card, CardHeader, Vacio } from "./ui";
 import {
   CATEGORIAS_GASTO,

@@ -1,51 +1,23 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
 
+// Layout raíz: solo el armazón. A propósito NO trae menú de navegación.
+//
+// La app tiene tres caras con públicos distintos y el menú interno no puede
+// aparecer en ninguna que no sea la tuya:
+//   (interno)/ → admin y ayudante, con menú
+//   subir/     → comprador y vendedor, sin nada que los saque de su tarea
+//   casas/     → catálogo público, con su propio encabezado
 export const metadata: Metadata = {
-  title: "AppBrick — Grupo Brick",
-  description: "Trámites, avances y costos de Grupo Brick",
+  title: "Grupo Brick",
+  description: "Grupo Brick — Chihuahua",
 };
-
-const NAV = [
-  { href: "/", label: "Tablero" },
-  { href: "/propiedades", label: "Propiedades" },
-  { href: "/gastos", label: "Gastos" },
-];
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es-MX" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-[var(--background)]">
-        <header className="bg-brick-800 text-white sticky top-0 z-20 shadow-sm">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="flex h-14 items-center gap-6">
-              <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-                <span className="grid h-7 w-7 place-items-center rounded bg-gold-500 text-brick-900 text-sm font-bold">
-                  B
-                </span>
-                <span className="hidden sm:inline">AppBrick</span>
-              </Link>
-              <nav className="flex items-center gap-1 text-sm">
-                {NAV.map((n) => (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    className="rounded-md px-3 py-1.5 text-brick-100 hover:bg-brick-700 hover:text-white transition-colors"
-                  >
-                    {n.label}
-                  </Link>
-                ))}
-              </nav>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
-
-        <footer className="mx-auto w-full max-w-6xl px-4 py-6 text-xs text-slate-500">
-          Grupo Brick · Chihuahua
-        </footer>
+        {children}
       </body>
     </html>
   );

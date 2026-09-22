@@ -11,7 +11,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
-    "rescan": "tsx scripts/rescanear.ts"
+    "rescan": "tsx scripts/rescanear.ts",
+    "llave": "tsx scripts/generar-llave.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",

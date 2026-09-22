@@ -4,7 +4,7 @@ import { obtenerPropiedad } from "@/lib/queries";
 import { Card, CardHeader, EtapaBadge, Barra } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
 import { TablaGastos } from "@/components/gastos";
-import { guardarPropiedad } from "../actions";
+import { guardarPropiedad } from "@/acciones/propiedades";
 import { ETAPAS, TIPOS_PROPIEDAD, mxn, fechaCorta } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";

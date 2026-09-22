@@ -1,4 +1,4 @@
-import { cambiarEstadoTramite, alternarSubdoc, guardarDetalleTramite } from "@/app/propiedades/actions";
+import { cambiarEstadoTramite, alternarSubdoc, guardarDetalleTramite } from "@/acciones/propiedades";
 import { Badge } from "./ui";
 import { ESTADOS_TRAMITE, BLOQUES, mxn, fechaCorta } from "@/lib/constants";
 import type { PropiedadDetalle } from "@/lib/queries";
