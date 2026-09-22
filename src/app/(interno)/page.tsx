@@ -2,10 +2,13 @@ import Link from "next/link";
 import { resumenGeneral, tramitesAtorados, listarPropiedades } from "@/lib/queries";
 import { Card, CardHeader, Stat, Badge, EtapaBadge, Barra, Vacio } from "@/components/ui";
 import { mxn, fechaCorta } from "@/lib/constants";
+import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
 export default async function Tablero() {
+  await exigirAdmin();
+
   const [resumen, atorados, propiedades] = await Promise.all([
     resumenGeneral(),
     tramitesAtorados(),

@@ -160,3 +160,26 @@ export function mensajeWhatsApp(opciones: {
     opciones.url
   );
 }
+
+/**
+ * Normaliza un teléfono mexicano a formato internacional para wa.me.
+ * Acepta "614 496 7308", "6144967308", "+52 614 496 7308" y devuelve
+ * "526144967308". Si no se puede, devuelve null y la UI oculta el botón.
+ */
+export function telefonoWhatsApp(telefono: string | null): string | null {
+  if (!telefono) return null;
+
+  const digitos = telefono.replace(/\D/g, "");
+  if (digitos.length === 10) return `52${digitos}`;
+  if (digitos.length === 12 && digitos.startsWith("52")) return digitos;
+  // 13 dígitos = 52 + 1 + 10, el formato viejo de México.
+  if (digitos.length === 13 && digitos.startsWith("521")) return `52${digitos.slice(3)}`;
+  return null;
+}
+
+/** Link de WhatsApp a una persona concreta, con el mensaje ya escrito. */
+export function linkWhatsAppA(telefono: string | null, mensaje: string): string | null {
+  const numero = telefonoWhatsApp(telefono);
+  if (!numero) return null;
+  return `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`;
+}

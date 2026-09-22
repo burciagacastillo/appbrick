@@ -4,8 +4,10 @@ import { obtenerPropiedad } from "@/lib/queries";
 import { Card, CardHeader, EtapaBadge, Barra } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
 import { TablaGastos } from "@/components/gastos";
+import { Publicacion } from "@/components/publicacion";
 import { guardarPropiedad } from "@/acciones/propiedades";
 import { ETAPAS, TIPOS_PROPIEDAD, mxn, fechaCorta } from "@/lib/constants";
+import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ const TABS = [
   { id: "expediente", label: "Expediente" },
   { id: "gastos", label: "Gastos" },
   { id: "datos", label: "Datos" },
+  { id: "publicar", label: "Publicar" },
 ] as const;
 
 const inputCls =
@@ -22,6 +25,7 @@ export default async function DetallePropiedad({
   params,
   searchParams,
 }: PageProps<"/propiedades/[id]">) {
+  await exigirAdmin();
   const { id } = await params;
   const sp = await searchParams;
   const tabActual = typeof sp.tab === "string" ? sp.tab : "expediente";
@@ -116,6 +120,8 @@ export default async function DetallePropiedad({
       {tabActual === "expediente" ? <Expediente tramites={p.tramites} /> : null}
 
       {tabActual === "gastos" ? <TablaGastos propiedad={p} /> : null}
+
+      {tabActual === "publicar" ? <Publicacion propiedad={p} /> : null}
 
       {tabActual === "datos" ? (
         <Card>

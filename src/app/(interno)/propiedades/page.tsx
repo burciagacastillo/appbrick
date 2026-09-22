@@ -2,10 +2,13 @@ import Link from "next/link";
 import { listarPropiedades } from "@/lib/queries";
 import { Card, EtapaBadge, Barra, Vacio } from "@/components/ui";
 import { mxn, ETAPAS } from "@/lib/constants";
+import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
 export default async function Propiedades() {
+  await exigirAdmin();
+
   const propiedades = await listarPropiedades();
 
   // Agrupadas por etapa, en el orden del ciclo del negocio.

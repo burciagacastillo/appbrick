@@ -3,10 +3,13 @@ import { db } from "@/lib/db";
 import { cuentaEntreSocios } from "@/lib/queries";
 import { Card, CardHeader, Vacio } from "@/components/ui";
 import { mxn, fechaCorta, labelCategoria, CATEGORIAS_GASTO } from "@/lib/constants";
+import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
 
 export default async function Gastos() {
+  await exigirAdmin();
+
   const [gastos, socios] = await Promise.all([
     db.gasto.findMany({
       include: { pagadoPor: true, propiedad: { select: { id: true, nombre: true } } },

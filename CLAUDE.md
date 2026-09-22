@@ -11,9 +11,10 @@ Leerlo antes de tomar decisiones de producto.
 
 | Ruta | Quién | Qué ve |
 |---|---|---|
-| `src/app/(interno)/` | admin (Erick) y ayudante | Todo / solo documentos asignados |
+| `src/app/(interno)/` | admin (Erick) y ayudante | Todo / solo documentos de sus propiedades |
 | `src/app/subir/[token]/` | comprador o vendedor | **Solo sus documentos.** Sin cuenta, entra por link |
-| `src/app/casas/` *(pendiente)* | cualquiera | Catálogo público, botón de WhatsApp |
+| `src/app/casas/` | cualquiera | Catálogo público, botón de WhatsApp |
+| `src/app/entrar/` | admin y ayudante | Login |
 
 **El layout raíz no tiene menú a propósito.** El menú interno vive en
 `(interno)/layout.tsx` y solo ahí. Si se sube al raíz, el comprador termina
@@ -30,6 +31,21 @@ Una **Propiedad** tiene un **expediente de 34 trámites**, una **bitácora de ga
 - Prisma 7 sobre **SQLite** (`dev.db` en la raíz)
 - Archivos en `almacen/` (fuera de git). Un solo componente de cliente:
   `subir-form.tsx`, y existe porque el invitado sube fotos con señal mala.
+
+## Permisos
+
+`src/lib/permisos.ts` es la puerta. `exigirAdmin()` en cada página de admin,
+`exigirSesion()` donde entra el ayudante, y `puedeVerPropiedad()` en las rutas
+que entregan archivos.
+
+**Cada página pide su permiso por su cuenta.** El layout de `(interno)` también
+corta el paso, pero un layout de Next no es una garantía de seguridad: no se
+ejecuta en todas las formas de llegar a una página. Por eso las funciones
+devuelven la sesión — para que la página necesite ese valor y no se pueda
+"olvidar" de pedirlo.
+
+El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
+`/equipo`. El acceso puede tener fecha de vencimiento.
 
 ## Las tres reglas que no se rompen
 
@@ -137,9 +153,11 @@ npx tsx scripts/probar-cripto.ts    # verifica el cifrado
 
 ## Pendiente
 
-- Autenticación (admin y ayudante). **Bloquea publicar.**
-- Pantalla de revisión: aprobar / rechazar con motivo
-- Rol ayudante con marca de agua
-- Catálogo público `casas/` + fotos + botón WhatsApp
-- Recordatorios automáticos y alertas de vigencia
-- Campos nuevos en la UI: estado civil, régimen, empleo, notaría, referencias
+- **Segundo factor para el admin. Bloquea publicar.** Esa cuenta descifra las
+  contraseñas de Infonavit; su contraseña sola no basta.
+- Campos en la UI: estado civil, régimen matrimonial, empleo, notaría,
+  referencias, saldo del crédito del vendedor. Ya están en el modelo.
+- Chatbot fase 2 (WhatsApp Business API).
+- Migrar a Supabase (base y almacén) al publicar.
+- Marca de agua en descargas del ayudante. Hoy queda registrado quién bajó qué,
+  que es el disuasivo real — una marca de agua la vence una captura de pantalla.

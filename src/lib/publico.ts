@@ -52,7 +52,10 @@ export function aFichaPublica(p: ConFotos): FichaPublica | null {
     .sort((a, b) => Number(b.esPortada) - Number(a.esPortada) || a.orden - b.orden)
     .map((f) => ({
       url: `/api/foto/${f.id}`,
-      alt: f.alt ?? p.tituloPublico ?? p.nombre,
+      // El título público manda sobre el alt guardado, y NUNCA se cae al
+      // nombre interno: propiedades como "Nueva Fe (Jonathan)" publicarían
+      // el nombre del vendedor en el HTML.
+      alt: p.tituloPublico ?? f.alt ?? "Casa en venta",
     }));
 
   return {

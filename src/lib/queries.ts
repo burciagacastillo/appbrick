@@ -81,6 +81,7 @@ export async function obtenerPropiedad(id: string) {
       },
       presupuesto: true,
       personas: { include: { persona: true } },
+      fotos: { orderBy: [{ esPortada: "desc" }, { orden: "asc" }] },
     },
   });
   if (!propiedad) return null;
