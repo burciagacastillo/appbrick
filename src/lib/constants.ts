@@ -125,3 +125,36 @@ export function fechaCorta(d: Date | string | null | undefined): string {
     year: "numeric",
   }).format(new Date(d));
 }
+
+// --- Personas ---------------------------------------------------------------
+
+export const ESTADOS_CIVILES = [
+  { id: "soltero", label: "Soltero(a)" },
+  { id: "casado", label: "Casado(a)" },
+  { id: "union_libre", label: "Unión libre" },
+  { id: "divorciado", label: "Divorciado(a)" },
+  { id: "viudo", label: "Viudo(a)" },
+] as const;
+
+/**
+ * El régimen decide si el cónyuge tiene que firmar la escritura y si hace
+ * falta el trámite 6 (acta de matrimonio). Es de los datos que más atoran
+ * un cierre cuando se descubre tarde.
+ */
+export const REGIMENES = [
+  { id: "bienes_mancomunados", label: "Bienes mancomunados", nota: "El cónyuge firma" },
+  { id: "separacion_de_bienes", label: "Separación de bienes", nota: "El cónyuge no firma" },
+] as const;
+
+export function estadoCivil(id: string | null) {
+  return ESTADOS_CIVILES.find((e) => e.id === id);
+}
+
+export function regimen(id: string | null) {
+  return REGIMENES.find((r) => r.id === id);
+}
+
+/** ¿Este estado civil obliga a preguntar por el régimen? */
+export function pideRegimen(estadoCivil: string | null): boolean {
+  return estadoCivil === "casado";
+}

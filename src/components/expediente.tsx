@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cambiarEstadoTramite, alternarSubdoc, guardarDetalleTramite } from "@/acciones/propiedades";
 import { Badge, CLASE_CAMPO } from "./ui";
 import { ESTADOS_TRAMITE, BLOQUES, mxn, fechaCorta } from "@/lib/constants";
@@ -36,7 +37,7 @@ function CicloPago({ t }: { t: Tramite }) {
   );
 }
 
-function FilaTramite({ t }: { t: Tramite }) {
+function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
   const alerta = t.ordenDeCobro && !t.pagoComprobado;
   const vencido = t.fechaLimite != null && t.fechaLimite < new Date() && t.estado !== "completo";
 
@@ -105,6 +106,21 @@ function FilaTramite({ t }: { t: Tramite }) {
 
           {t.notas ? (
             <p className="mt-1 text-xs italic text-slate-500">{t.notas}</p>
+          ) : null}
+
+          {/* Los trámites 13, 18 y 19 no son archivos: son datos que se
+              capturan en la pestaña Personas. Pedirles un PDF era pedir algo
+              que no existe. */}
+          {t.catalogo.esDato ? (
+            <p className="mt-1.5 text-xs">
+              <span className="text-slate-500">Este no se sube, se captura. </span>
+              <Link
+                href={`/propiedades/${encodeURIComponent(propiedadId)}?tab=personas`}
+                className="font-medium text-brick-700 hover:underline dark:text-gold-400"
+              >
+                Ir a Personas →
+              </Link>
+            </p>
           ) : null}
 
           {t.catalogo.requierePago ? <CicloPago t={t} /> : null}
@@ -199,7 +215,13 @@ function FilaTramite({ t }: { t: Tramite }) {
   );
 }
 
-export function Expediente({ tramites }: { tramites: Tramite[] }) {
+export function Expediente({
+  tramites,
+  propiedadId,
+}: {
+  tramites: Tramite[];
+  propiedadId: string;
+}) {
   return (
     <div className="space-y-4">
       {BLOQUES.map((b) => {
@@ -228,7 +250,7 @@ export function Expediente({ tramites }: { tramites: Tramite[] }) {
             </div>
             <ul className="divide-y divide-slate-100 dark:divide-brick-700">
               {items.map((t) => (
-                <FilaTramite key={t.id} t={t} />
+                <FilaTramite key={t.id} t={t} propiedadId={propiedadId} />
               ))}
             </ul>
           </div>

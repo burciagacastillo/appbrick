@@ -101,7 +101,7 @@ export async function obtenerPropiedad(id: string) {
         orderBy: { fecha: "desc" },
       },
       presupuesto: true,
-      personas: { include: { persona: true } },
+      personas: { include: { persona: { include: { referencias: true } } } },
       fotos: { orderBy: [{ esPortada: "desc" }, { orden: "asc" }] },
       invitaciones: {
         where: { revocada: false },

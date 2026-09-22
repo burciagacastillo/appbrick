@@ -17,6 +17,8 @@ export type Accion =
   | "descargo"
   | "elimino"
   | "revelo_password"
+  | "guardo_password"
+  | "borro_password"
   | "creo_invitacion"
   | "revoco_invitacion"
   | "acepto_aviso"

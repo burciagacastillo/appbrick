@@ -5,6 +5,8 @@ import {
   ETAPAS,
   TIPOS_PROPIEDAD,
   ESTADOS_TRAMITE,
+  ESTADOS_CIVILES,
+  REGIMENES,
 } from "./constants";
 
 // Validación de todo lo que entra por formulario.
@@ -201,3 +203,75 @@ export function validarOTronar<T extends z.ZodType>(
   if (!r.ok) throw new Error(r.error);
   return r.datos;
 }
+
+// --- Personas ---------------------------------------------------------------
+
+export const EsquemaPersona = z.object({
+  personaId: id,
+  propiedadId: id,
+  nombre: textoCorto.min(1, "La persona necesita nombre"),
+  telefono: opcional,
+  email: opcional,
+  curp: opcional,
+  rfc: opcional,
+  nss: opcional,
+  domicilio: opcionalLargo,
+
+  estadoCivil: z
+    .union([z.literal(""), z.enum(ESTADOS_CIVILES.map((e) => e.id) as [string, ...string[]])])
+    .optional()
+    .transform((v) => v || null),
+  regimenMatrimonial: z
+    .union([z.literal(""), z.enum(REGIMENES.map((r) => r.id) as [string, ...string[]])])
+    .optional()
+    .transform((v) => v || null),
+  conyugeNombre: opcional,
+
+  empleador: opcional,
+  puesto: opcional,
+  antiguedadMeses: z
+    .union([z.literal(""), z.coerce.number().int().min(0).max(720)])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : Number(v))),
+  ingresoMensual: dineroOpcional,
+
+  numeroCredito: opcional,
+  infonavitUsuario: opcional,
+  /**
+   * La contraseña nueva. Si llega vacía se conserva la que ya estaba: así
+   * guardar cualquier otro campo no la borra sin querer.
+   */
+  infonavitPassword: z.string().max(200).optional(),
+  notas: opcionalLargo,
+});
+
+export const EsquemaReferencias = z.object({
+  personaId: id,
+  propiedadId: id,
+  nombre1: opcional,
+  telefono1: opcional,
+  parentesco1: opcional,
+  nombre2: opcional,
+  telefono2: opcional,
+  parentesco2: opcional,
+});
+
+export const EsquemaVincular = z.object({
+  propiedadId: id,
+  nombre: textoCorto.min(1, "Falta el nombre"),
+  telefono: opcional,
+  rol: z.enum(["vendedor", "comprador", "socio", "contratista", "notario", "valuador", "otro"]),
+});
+
+export const EsquemaRevelar = z.object({
+  personaId: id,
+});
+
+export const EsquemaOperacion = z.object({
+  propiedadId: id,
+  notaria: opcional,
+  fechaFirmaProgramada: fechaOpcional,
+  saldoCreditoVendedor: dineroOpcional,
+  montoCreditoComprador: dineroOpcional,
+  enganche: dineroOpcional,
+});

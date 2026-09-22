@@ -5,6 +5,7 @@ import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO } from "@/components/u
 import { Expediente } from "@/components/expediente";
 import { TablaGastos } from "@/components/gastos";
 import { Publicacion } from "@/components/publicacion";
+import { Personas } from "@/components/personas";
 import { guardarPropiedad } from "@/acciones/propiedades";
 import { ETAPAS, TIPOS_PROPIEDAD, mxn, fechaCorta } from "@/lib/constants";
 import { exigirAdmin } from "@/lib/permisos";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 const TABS = [
   { id: "expediente", label: "Expediente" },
+  { id: "personas", label: "Personas" },
   { id: "gastos", label: "Gastos" },
   { id: "datos", label: "Datos" },
   { id: "publicar", label: "Publicar" },
@@ -115,7 +117,11 @@ export default async function DetallePropiedad({
         ))}
       </div>
 
-      {tabActual === "expediente" ? <Expediente tramites={p.tramites} /> : null}
+      {tabActual === "expediente" ? (
+        <Expediente tramites={p.tramites} propiedadId={p.id} />
+      ) : null}
+
+      {tabActual === "personas" ? <Personas propiedad={p} /> : null}
 
       {tabActual === "gastos" ? <TablaGastos propiedad={p} /> : null}
 

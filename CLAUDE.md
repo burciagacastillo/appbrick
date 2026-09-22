@@ -12,6 +12,7 @@ Leerlo antes de tomar decisiones de producto.
 | Ruta | Quién | Qué ve |
 |---|---|---|
 | `src/app/(interno)/` | admin (Erick) y ayudante | Todo / solo documentos de sus propiedades |
+| `propiedades/[id]?tab=personas` | **solo admin** | NSS, contraseñas de Infonavit, referencias |
 | `src/app/subir/[token]/` | comprador o vendedor | **Solo sus documentos.** Sin cuenta, entra por link |
 | `src/app/casas/` | cualquiera | Catálogo público, botón de WhatsApp |
 | `src/app/entrar/` | admin y ayudante | Login |
@@ -32,6 +33,26 @@ Una **Propiedad** tiene un **expediente de 34 trámites**, una **bitácora de ga
 - Archivos en `almacen/` (fuera de git). Un solo componente de cliente:
   `subir-form.tsx`, y existe porque el invitado sube fotos con señal mala.
 
+## Trámites que son dato, no archivo
+
+Tres del catálogo (13 NSS y contraseña, 18 y 19 referencias) llevan
+`esDato: true`. No se suben: se capturan en la pestaña **Personas**, y su
+estado lo pone `sincronizarTramitesDeDatos()` según exista el dato. La UI
+del expediente no les muestra botón de subir — pedirles un PDF era pedir algo
+que no existe.
+
+Ese automatismo **no pisa** lo que marcaste como "no aplica": tu decisión manda.
+
+## Contraseñas de Infonavit: el camino completo
+
+Guardar → `cifrar()` en `guardarPersona`, y en bitácora.
+Ver → `revelarPassword`, la **única** función que saca un secreto en claro:
+exige admin, se invoca solo al pedirlo, y cada consulta queda registrada.
+La contraseña **nunca viaja con la página**, solo cuando se pide.
+
+Si el campo llega vacío al guardar, se conserva la que estaba: si no, editar
+el teléfono la borraría sin avisar.
+
 ## Permisos
 
 `src/lib/permisos.ts` es la puerta. `exigirAdmin()` en cada página de admin,
@@ -49,7 +70,7 @@ El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 
 ## Pruebas
 
-`npm test` — 90 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 95 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -59,6 +80,7 @@ El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 | `cripto.test.ts` | Cifrado, subllaves y hashing de contraseñas |
 | `limitador.test.ts` | El freno de fuerza bruta |
 | `acciones/sesion.test.ts` | Login contra la base real, incluido el bloqueo |
+| `acciones/personas.test.ts` | Que la contraseña llegue CIFRADA a la columna, y los trámites de dato |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -188,12 +210,13 @@ cualquiera con sesión puede mandar un FormData armado a mano.
 
 ## Pendiente
 
+- **Piloto con una operación real** antes de publicar. Todo lo probado hasta
+  hoy lo probó quien sabe cómo funciona; falta un comprador de verdad.
+
 - **Segundo factor para el admin. Bloquea publicar.** Esa cuenta descifra las
   contraseñas de Infonavit; su contraseña sola no basta.
 - El limitador de intentos vive en memoria: al pasar a varias instancias hay
   que moverlo a una tabla, o cada instancia llevará su propia cuenta.
-- Campos en la UI: estado civil, régimen matrimonial, empleo, notaría,
-  referencias, saldo del crédito del vendedor. Ya están en el modelo.
 - Chatbot fase 2 (WhatsApp Business API).
 - Migrar a Supabase (base y almacén) al publicar.
 - Marca de agua en descargas del ayudante. Hoy queda registrado quién bajó qué,
