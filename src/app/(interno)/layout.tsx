@@ -63,6 +63,13 @@ export default async function LayoutInterno({
             </nav>
 
             <div className="flex shrink-0 items-center gap-3 text-sm">
+              <Link
+                href="/cuenta/segundo-factor"
+                className="hidden rounded-md px-2 py-1 text-brick-100 hover:bg-brick-700 hover:text-white sm:inline"
+                title={usuario.totpActivo ? "Segundo factor activo" : "Activa tu segundo factor"}
+              >
+                {usuario.totpActivo ? "🔒" : "🔓 Activar 2FA"}
+              </Link>
               <span className="hidden text-brick-100 sm:inline">
                 {usuario.nombre}
                 {usuario.esAdmin ? null : (

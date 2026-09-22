@@ -1,85 +1,71 @@
+import { db } from "./db";
+
 // Freno de fuerza bruta.
 //
-// La cuenta de admin descifra credenciales de terceros y solo la protege una
-// contraseña. Sin freno, un script prueba miles por minuto.
-//
-// En memoria: alcanza mientras la app corra en un solo proceso. Al migrar a
-// Supabase hay que moverlo a una tabla, porque con varias instancias cada una
-// llevaría su propia cuenta y el límite real se multiplicaría.
-
-type Registro = { intentos: number; bloqueadoHasta: number };
-
-const registros = new Map<string, Registro>();
-
-/** Se limpia de vez en cuando para que el Map no crezca sin fin. */
-let ultimaLimpieza = Date.now();
-const LIMPIAR_CADA = 10 * 60_000;
-
-function limpiarViejos(ahora: number) {
-  if (ahora - ultimaLimpieza < LIMPIAR_CADA) return;
-  ultimaLimpieza = ahora;
-  for (const [clave, r] of registros) {
-    if (r.bloqueadoHasta < ahora - LIMPIAR_CADA) registros.delete(clave);
-  }
-}
+// Protege el login y el código del segundo factor. Vive en la base (tabla
+// IntentoAcceso) y no en memoria: en la nube cada petición puede caer en un
+// servidor distinto, y en memoria cada uno llevaría su propia cuenta — el
+// límite real se multiplicaría por el número de servidores.
 
 export type Veredicto =
   | { permitido: true }
   | { permitido: false; segundosRestantes: number };
 
 /**
- * Consulta si una clave (por ejemplo, un correo) puede intentar otra vez.
- * No consume intento: solo pregunta.
+ * Consulta si una clave puede intentar otra vez. No gasta intento.
+ * Claves: "login:correo@x.com", "2fa:<usuarioId>".
  */
-export function puedeIntentar(clave: string): Veredicto {
+export async function puedeIntentar(clave: string): Promise<Veredicto> {
+  const r = await db.intentoAcceso.findUnique({ where: { clave } });
+  if (!r?.bloqueadoHasta) return { permitido: true };
+
   const ahora = Date.now();
-  limpiarViejos(ahora);
+  const hasta = r.bloqueadoHasta.getTime();
 
-  const r = registros.get(clave);
-  if (!r) return { permitido: true };
-
-  const bloqueado = r.bloqueadoHasta > 0;
-
-  if (bloqueado && ahora < r.bloqueadoHasta) {
-    return {
-      permitido: false,
-      segundosRestantes: Math.ceil((r.bloqueadoHasta - ahora) / 1000),
-    };
+  if (ahora < hasta) {
+    return { permitido: false, segundosRestantes: Math.ceil((hasta - ahora) / 1000) };
   }
 
   // Solo se borra el historial si HUBO un bloqueo y ya venció.
   //
-  // Antes esta condición era `ahora >= r.bloqueadoHasta`, que también se
-  // cumple cuando bloqueadoHasta vale 0 — es decir, cuando todavía no hay
-  // bloqueo. El efecto: cada consulta borraba los intentos acumulados y el
-  // freno no llegaba a activarse nunca. Lo encontraron las pruebas.
-  if (bloqueado && ahora >= r.bloqueadoHasta) registros.delete(clave);
-
+  // La versión en memoria tuvo aquí un bug que encontraron las pruebas: la
+  // condición también se cumplía cuando todavía no había bloqueo, así que
+  // cada consulta borraba los intentos y el freno no se activaba nunca.
+  await db.intentoAcceso.delete({ where: { clave } }).catch(() => {});
   return { permitido: true };
 }
 
 /** Cuenta un intento fallido y arma el bloqueo cuando toca. */
-export function registrarFallo(
+export async function registrarFallo(
   clave: string,
   opciones: { maximo?: number; minutosBloqueo?: number } = {}
-) {
+): Promise<void> {
   const maximo = opciones.maximo ?? 5;
-  const bloqueo = (opciones.minutosBloqueo ?? 15) * 60_000;
-  const ahora = Date.now();
+  const bloqueoMs = (opciones.minutosBloqueo ?? 15) * 60_000;
 
-  const r = registros.get(clave) ?? { intentos: 0, bloqueadoHasta: 0 };
-  r.intentos++;
-  if (r.intentos >= maximo) r.bloqueadoHasta = ahora + bloqueo;
-  registros.set(clave, r);
+  // Incremento atómico: dos intentos simultáneos no se pisan la cuenta.
+  const r = await db.intentoAcceso.upsert({
+    where: { clave },
+    update: { intentos: { increment: 1 } },
+    create: { clave, intentos: 1 },
+  });
+
+  if (r.intentos >= maximo && !r.bloqueadoHasta) {
+    await db.intentoAcceso.update({
+      where: { clave },
+      data: { bloqueadoHasta: new Date(Date.now() + bloqueoMs) },
+    });
+  }
 }
 
 /** Un ingreso correcto borra el historial de esa clave. */
-export function limpiarIntentos(clave: string) {
-  registros.delete(clave);
+export async function limpiarIntentos(clave: string): Promise<void> {
+  await db.intentoAcceso.deleteMany({ where: { clave } });
 }
 
-/** Solo para las pruebas: deja el limitador como recién arrancado. */
-export function reiniciarLimitador() {
-  registros.clear();
-  ultimaLimpieza = Date.now();
+/** Solo para las pruebas. */
+export async function reiniciarLimitador(prefijo = ""): Promise<void> {
+  await db.intentoAcceso.deleteMany({
+    where: prefijo ? { clave: { startsWith: prefijo } } : {},
+  });
 }

@@ -39,6 +39,17 @@ model Usuario {
   activo       Boolean  @default(true)
   creadoEn     DateTime @default(now())
 
+  // --- Segundo factor (app autenticadora) ---
+  /// CIFRADO igual que las contraseñas de Infonavit: quien tenga este
+  /// secreto genera códigos válidos, así que es tan sensible como la
+  /// contraseña misma.
+  totpSecretoCifrado String?
+  /// Solo se activa cuando el usuario comprobó que su app genera códigos
+  /// válidos. Un secreto guardado pero no confirmado no protege nada.
+  totpActivo         Boolean @default(false)
+  /// Último paso de 30 s usado: cada código sirve una sola vez.
+  totpUltimoPaso     Int?
+
   /// El ayudante solo ve las propiedades que se le asignan aquí.
   /// El admin no necesita filas: ve todo por definición.
   accesos AccesoAyudante[]
@@ -93,6 +104,17 @@ model Invitacion {
   documentos  Documento[] @relation("DocumentoSubidoPorInvitacion")
 
   @@index([propiedadId])
+}
+
+/// Freno de fuerza bruta. Vive en la base y no en memoria porque en la nube
+/// cada petición puede caer en un servidor distinto: en memoria, cada uno
+/// llevaría su propia cuenta y el límite real se multiplicaría.
+model IntentoAcceso {
+  /// "login:correo@x.com" o "2fa:<usuarioId>"
+  clave          String    @id
+  intentos       Int       @default(0)
+  bloqueadoHasta DateTime?
+  actualizadoEn  DateTime  @updatedAt
 }
 
 /// Quién hizo qué y cuándo. Con datos personales de terceros esto no es

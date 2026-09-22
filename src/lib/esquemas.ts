@@ -69,6 +69,13 @@ export const EsquemaLogin = z.object({
   password: z.string().min(1, "Falta la contraseña").max(200),
 });
 
+export const EsquemaCodigo = z.object({
+  codigo: z
+    .string()
+    .transform((v) => v.replace(/\s/g, ""))
+    .pipe(z.string().regex(/^\d{6}$/, "El código son 6 números")),
+});
+
 export const EsquemaGasto = z.object({
   propiedadId: id,
   fecha: fechaOpcional,

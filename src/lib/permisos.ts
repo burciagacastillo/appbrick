@@ -15,10 +15,29 @@ export async function exigirSesion(): Promise<Sesion> {
   return usuario;
 }
 
-/** Solo admin. El ayudante que llegue aquí se va a su propia pantalla. */
+/**
+ * ¿Se obliga al admin a tener segundo factor?
+ *
+ * En producción, siempre: esa cuenta descifra las contraseñas de Infonavit
+ * de terceros y su contraseña sola no basta. En tu computadora se puede
+ * trabajar sin él, pero APPBRICK_EXIGIR_2FA=1 lo fuerza también ahí.
+ */
+export function exige2fa(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.APPBRICK_EXIGIR_2FA === "1"
+  );
+}
+
+/**
+ * Solo admin. El ayudante que llegue aquí se va a su propia pantalla.
+ * Un admin sin segundo factor, en producción, no pasa de la pantalla donde
+ * se activa: no ve ni un dato hasta configurarlo.
+ */
 export async function exigirAdmin(): Promise<Sesion> {
   const usuario = await exigirSesion();
   if (!usuario.esAdmin) redirect("/ayudante");
+  if (exige2fa() && !usuario.mfaVerificado) redirect("/cuenta/segundo-factor");
   return usuario;
 }
 

@@ -23,6 +23,8 @@ export type Accion =
   | "revoco_invitacion"
   | "acepto_aviso"
   | "entro"
+  | "activo_2fa"
+  | "reinicio_2fa"
   | "corrigio_fecha"
   | "vio_expediente";
 

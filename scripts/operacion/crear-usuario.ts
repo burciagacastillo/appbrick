@@ -41,8 +41,32 @@ async function main() {
   const existente = await db.usuario.findUnique({ where: { email } });
   if (existente) {
     console.log(`\nYa existe ${email} (${existente.rol}).`);
-    const r = await preguntar("¿Le cambio la contraseña? (s/n): ");
-    if (r.toLowerCase() !== "s") {
+    console.log(`Segundo factor: ${existente.totpActivo ? "activo" : "no configurado"}\n`);
+    const r = await preguntar(
+      "¿Qué hago? 1) cambiar contraseña  2) reiniciar segundo factor  3) nada: "
+    );
+
+    if (r === "2") {
+      // La recuperación si pierde el celular. Solo funciona desde esta
+      // computadora, con acceso a la base: por internet no hay forma.
+      await db.usuario.update({
+        where: { email },
+        data: { totpSecretoCifrado: null, totpActivo: false, totpUltimoPaso: null },
+      });
+      await db.bitacora.create({
+        data: {
+          tipoActor: "sistema",
+          actor: "npm run usuario",
+          accion: "reinicio_2fa",
+          entidad: "usuario",
+          entidadId: existente.id,
+          detalle: `Se reinició el segundo factor de ${email}`,
+        },
+      });
+      console.log("\nListo. Al entrar te va a pedir escanear un QR nuevo.\n");
+      return;
+    }
+    if (r !== "1") {
       console.log("Sin cambios.\n");
       return;
     }

@@ -39,7 +39,7 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
-beforeEach(() => reiniciarLimitador());
+beforeEach(async () => { await reiniciarLimitador("login:"); });
 
 describe("entrar — mensajes", () => {
   it("no revela si el correo existe o no", async () => {
