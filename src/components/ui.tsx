@@ -144,6 +144,10 @@ const TONOS: Record<string, string> = {
   cyan: "bg-cyan-50 text-cyan-700 ring-cyan-600/15",
   emerald: "bg-emerald-50 text-emerald-700 ring-emerald-600/15",
   rose: "bg-rose-50 text-rose-600 ring-rose-600/15",
+  sky: "bg-sky-50 text-sky-700 ring-sky-600/15",
+  indigo: "bg-indigo-50 text-indigo-700 ring-indigo-600/15",
+  fuchsia: "bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-600/15",
+  teal: "bg-teal-50 text-teal-700 ring-teal-600/15",
 };
 
 const PUNTOS: Record<string, string> = {
@@ -155,6 +159,10 @@ const PUNTOS: Record<string, string> = {
   cyan: "bg-cyan-500",
   emerald: "bg-emerald-500",
   rose: "bg-rose-500",
+  sky: "bg-sky-500",
+  indigo: "bg-indigo-500",
+  fuchsia: "bg-fuchsia-500",
+  teal: "bg-teal-500",
 };
 
 export function Badge({

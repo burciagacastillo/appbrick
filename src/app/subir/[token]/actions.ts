@@ -4,121 +4,96 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { validarToken } from "@/lib/invitaciones";
 import { registrar } from "@/lib/bitacora";
-import { hashArchivo } from "@/lib/cripto";
-import {
-  guardar,
-  carpetaDe,
-  validarArchivo,
-  nombrarConConvencion,
-} from "@/lib/almacen";
+import { prepararSubidaDirecta } from "@/lib/almacen";
+import { recibirArchivo, guardarDocumento } from "@/lib/subida";
 
 export type ResultadoSubida = { ok: true; mensaje: string } | { ok: false; error: string };
+export type PermisoSubida = { ruta: string; url: string } | null | { error: string };
 
 /** 7 documentos del bloque, con margen para correcciones y reintentos. */
 const MAXIMO_POR_INVITACION = 40;
 
 /**
- * Sube un documento desde el portal del invitado.
- *
- * Toda la seguridad cuelga del token: se revalida en cada subida, y el trámite
- * destino se verifica contra la lista de lo que ESA invitación puede tocar.
- * Sin eso, alguien con un link de comprador podría mandar un tramiteId ajeno.
+ * Revisa que ESTE link pueda subir a ESTE trámite. Toda la seguridad del
+ * portal cuelga del token: se revalida en cada paso, y el trámite se busca en
+ * la lista de lo que esa invitación puede tocar. Sin eso, alguien con un link
+ * de comprador podría mandar un tramiteId ajeno.
  */
+async function autorizar(token: string, tramiteId: string) {
+  const validacion = await validarToken(token);
+  if (!validacion.ok) {
+    return { ok: false as const, error: "Tu link ya no es válido. Pídele uno nuevo a Erick." };
+  }
+  const { invitacion, tramites } = validacion;
+
+  if (!invitacion.avisoAceptadoEn) {
+    return { ok: false as const, error: "Primero tienes que aceptar el aviso de privacidad." };
+  }
+
+  const tramite = tramites.find((t) => t.id === tramiteId);
+  if (!tramite) {
+    return { ok: false as const, error: "Ese documento no corresponde a tu lista." };
+  }
+
+  // Tope por invitación: sin esto, un link válido durante 60 días puede
+  // llenar el almacén con archivos de 20 MB.
+  const yaSubidos = await db.documento.count({
+    where: { subidoPorInvitacionId: invitacion.id },
+  });
+  if (yaSubidos >= MAXIMO_POR_INVITACION) {
+    return {
+      ok: false as const,
+      error: "Ya subiste demasiados archivos. Habla con Erick para continuar.",
+    };
+  }
+
+  return { ok: true as const, invitacion, tramite };
+}
+
+/**
+ * Paso 1 (solo publicada): permiso para mandar el archivo directo a la sala
+ * de espera. Pide las mismas credenciales que subir: sin link válido no hay
+ * permiso. En tu computadora devuelve null y el archivo va por el formulario.
+ */
+export async function prepararSubidaInvitado(
+  token: string,
+  tramiteId: string
+): Promise<PermisoSubida> {
+  const permiso = await autorizar(token, tramiteId);
+  if (!permiso.ok) return { error: permiso.error };
+  return prepararSubidaDirecta();
+}
+
+/** Paso 2: recibe el archivo (adjunto o ya en la sala de espera) y lo registra. */
 export async function subirDocumento(
   _previo: ResultadoSubida | null,
   formData: FormData
 ): Promise<ResultadoSubida> {
   const token = String(formData.get("token") ?? "");
   const tramiteId = String(formData.get("tramiteId") ?? "");
-  const archivo = formData.get("archivo");
 
-  const validacion = await validarToken(token);
-  if (!validacion.ok) {
-    return { ok: false, error: "Tu link ya no es válido. Pídele uno nuevo a Erick." };
+  const permiso = await autorizar(token, tramiteId);
+  if (!permiso.ok) {
+    // Si ya había mandado el archivo a la sala de espera, no se queda ahí.
+    await recibirArchivo(formData);
+    return { ok: false, error: permiso.error };
   }
-  const { invitacion, tramites } = validacion;
+  const { invitacion, tramite } = permiso;
 
-  if (!invitacion.avisoAceptadoEn) {
-    return { ok: false, error: "Primero tienes que aceptar el aviso de privacidad." };
-  }
+  const archivo = await recibirArchivo(formData);
+  if (!archivo.ok) return archivo;
 
-  // El trámite debe estar entre los que ESTA invitación puede tocar.
-  const tramite = tramites.find((t) => t.id === tramiteId);
-  if (!tramite) {
-    return { ok: false, error: "Ese documento no corresponde a tu lista." };
-  }
-
-  if (!(archivo instanceof File) || archivo.size === 0) {
-    return { ok: false, error: "No llegó ningún archivo. Inténtalo otra vez." };
-  }
-
-  // Tope por invitación: sin esto, un link válido durante 60 días puede
-  // llenar el disco con archivos de 20 MB.
-  const yaSubidos = await db.documento.count({
-    where: { subidoPorInvitacionId: invitacion.id },
+  const guardado = await guardarDocumento({
+    propiedad: invitacion.propiedad,
+    tramite,
+    subTipo: null,
+    contenido: archivo.contenido,
+    nombreOriginal: archivo.nombreOriginal,
+    estado: "pendiente",
+    subidoPor: { tipo: "invitado", invitacionId: invitacion.id },
   });
-  if (yaSubidos >= MAXIMO_POR_INVITACION) {
-    return {
-      ok: false,
-      error: "Ya subiste demasiados archivos. Habla con Erick para continuar.",
-    };
-  }
-
-  const contenido = Buffer.from(await archivo.arrayBuffer());
-
-  // Se valida por los BYTES, no por el tipo que declara el navegador.
-  const validez = validarArchivo(contenido);
-  if (!validez.ok) return { ok: false, error: validez.error };
-
-  const hash = hashArchivo(contenido);
-
-  // Si ya subió exactamente el mismo archivo, no lo duplicamos.
-  const yaExiste = await db.documento.findFirst({
-    where: { tramiteId: tramite.id, hash, estado: { not: "rechazado" } },
-  });
-  if (yaExiste) {
-    return { ok: true, mensaje: "Ese archivo ya lo habías subido." };
-  }
-
-  const nombreArchivo = nombrarConConvencion(
-    tramite.catalogo.numero,
-    null,
-    tramite.catalogo.nombre,
-    invitacion.propiedad.nombre,
-    validez.extension
-  );
-
-  const ruta = await guardar(
-    carpetaDe(invitacion.propiedadId, "documentos"),
-    nombreArchivo,
-    contenido,
-    validez.tipo
-  );
-
-  // Vigencia: se calcula desde hoy porque el invitado no captura la fecha del
-  // documento. Al revisarlo, el admin puede corregir la fecha real.
-  let vigenciaHasta: Date | null = null;
-  if (tramite.catalogo.vigenciaDias) {
-    vigenciaHasta = new Date();
-    vigenciaHasta.setDate(vigenciaHasta.getDate() + tramite.catalogo.vigenciaDias);
-  }
-
-  const documento = await db.documento.create({
-    data: {
-      propiedadId: invitacion.propiedadId,
-      tramiteId: tramite.id,
-      nombreOriginal: archivo.name,
-      nombreArchivo,
-      ruta,
-      mimeType: validez.tipo,
-      tamanoBytes: archivo.size,
-      hash,
-      estado: "pendiente",
-      vigenciaHasta,
-      subidoPorTipo: "invitado",
-      subidoPorInvitacionId: invitacion.id,
-    },
-  });
+  if (!guardado.ok) return guardado;
+  if (guardado.duplicado) return { ok: true, mensaje: "Ese archivo ya lo habías subido." };
 
   // El trámite pasa a "revisar": llegó algo, pero Erick todavía no lo valida.
   await db.tramite.update({
@@ -131,7 +106,7 @@ export async function subirDocumento(
     actor: `${invitacion.persona.nombre} (${invitacion.rol})`,
     accion: "subio",
     entidad: "documento",
-    entidadId: documento.id,
+    entidadId: guardado.documentoId,
     detalle: `${tramite.catalogo.numero} ${tramite.catalogo.nombre} — ${invitacion.propiedad.nombre}`,
   });
 

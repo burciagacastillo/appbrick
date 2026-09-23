@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CLASE_CAMPO } from "@/components/ui";
+import { achicarSiEsFoto } from "@/components/zona-subida";
 import {
   subirFotos,
   eliminarFoto,
@@ -68,10 +70,41 @@ function Interruptor({
 }
 
 export function Publicacion({ propiedad: p }: Props) {
-  const [estadoFotos, accionFotos, subiendo] = useActionState<
-    ResultadoFoto | null,
-    FormData
-  >(subirFotos, null);
+  const router = useRouter();
+  const [estadoFotos, setEstadoFotos] = useState<
+    | { tipo: "listo" }
+    | { tipo: "subiendo"; va: number; de: number }
+    | { tipo: "fin"; cuantas: number; errores: string[] }
+  >({ tipo: "listo" });
+  const subiendo = estadoFotos.tipo === "subiendo";
+
+  // Una por una y achicadas: Vercel gratis corta cualquier petición de más de
+  // 4.5 MB, y dos fotos de celular juntas ya pasaban.
+  async function subirVarias(lista: FileList | null, entrada: HTMLInputElement) {
+    const archivos = Array.from(lista ?? []);
+    if (archivos.length === 0) return;
+    let cuantas = 0;
+    const errores: string[] = [];
+
+    for (const [i, original] of archivos.entries()) {
+      setEstadoFotos({ tipo: "subiendo", va: i + 1, de: archivos.length });
+      try {
+        const foto = await achicarSiEsFoto(original);
+        const datos = new FormData();
+        datos.append("propiedadId", p.id);
+        datos.append("fotos", foto);
+        const r: ResultadoFoto = await subirFotos(null, datos);
+        if (r.ok) cuantas += r.cuantas;
+        else errores.push(`${original.name}: ${r.error}`);
+      } catch {
+        errores.push(`${original.name}: no se pudo subir, revisa tu señal.`);
+      }
+    }
+
+    entrada.value = "";
+    setEstadoFotos({ tipo: "fin", cuantas, errores });
+    router.refresh();
+  }
 
   return (
     <div className="space-y-4">
@@ -84,42 +117,43 @@ export function Publicacion({ propiedad: p }: Props) {
           </span>
         </div>
 
-        <form action={accionFotos} className="px-6 py-4">
-          <input type="hidden" name="propiedadId" value={p.id} />
-          <input
-            type="file"
-            name="fotos"
-            multiple
-            accept="image/jpeg,image/png,image/webp,image/heic"
-            disabled={subiendo}
-            className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0
-                       file:bg-brick-800 file:px-3 file:py-2 file:text-sm
-                       file:font-medium file:text-white hover:file:bg-brick-700
-                       disabled:opacity-50"
-            onChange={(e) => {
-              if (e.target.files?.length) e.target.form?.requestSubmit();
-            }}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Puedes escoger varias de una vez. Desde el celular sale el carrete.
-          </p>
+        <div className="px-6 py-4">
+          <label
+            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-fondo/60 px-4 py-6 text-center transition-colors hover:border-slate-400 hover:bg-fondo ${
+              subiendo ? "pointer-events-none opacity-70" : ""
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/heic"
+              disabled={subiendo}
+              className="sr-only"
+              onChange={(e) => void subirVarias(e.target.files, e.target)}
+            />
+            <span className="text-sm font-medium text-tinta">
+              {subiendo
+                ? `Subiendo ${estadoFotos.va} de ${estadoFotos.de}…`
+                : "Elegir fotos"}
+            </span>
+            <span className="text-xs text-tenue">
+              Puedes escoger varias de una vez. Desde el celular sale el carrete.
+            </span>
+          </label>
 
-          {subiendo ? (
-            <p className="mt-2 text-sm text-brick-700">
-              Subiendo fotos…
-            </p>
-          ) : null}
-          {!subiendo && estadoFotos?.ok === true ? (
+          {estadoFotos.tipo === "fin" && estadoFotos.cuantas > 0 ? (
             <p className="mt-2 text-sm text-emerald-700">
-              Se subieron {estadoFotos.cuantas}.
+              Se {estadoFotos.cuantas === 1 ? "subió 1" : `subieron ${estadoFotos.cuantas}`}.
             </p>
           ) : null}
-          {!subiendo && estadoFotos?.ok === false ? (
-            <p className="mt-2 text-sm text-rose-700">
-              {estadoFotos.error}
-            </p>
-          ) : null}
-        </form>
+          {estadoFotos.tipo === "fin"
+            ? estadoFotos.errores.map((e) => (
+                <p key={e} className="mt-2 text-sm text-rose-700">
+                  {e}
+                </p>
+              ))
+            : null}
+        </div>
 
         {p.fotos.length > 0 ? (
           <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4">

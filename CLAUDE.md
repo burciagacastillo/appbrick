@@ -82,7 +82,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 133 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 152 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -94,6 +94,8 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `acciones/sesion.test.ts` | Login contra la base real, incluido el bloqueo |
 | `acciones/personas.test.ts` | Que la contraseña llegue CIFRADA a la columna, y los trámites de dato |
 | `egresos.test.ts` | La gráfica de /gastos: meses en UTC (un gasto del día 1 no se brinca al mes anterior) y meses vacíos en cero |
+| `subida.test.ts` | Que la sala de espera (`_entrantes/`) no sirva para pedir el archivo de otro, y que un documento no se duplique |
+| `paquetes.test.ts` | El paquete del avalúo: orden del valuador, sin rechazados, solo el "a" en municipales, y que un PDF dañado no tumbe el paquete |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -106,7 +108,10 @@ en la segunda línea de un componente, que deja de ser de cliente en silencio.
 los sube.** `src/lib/tipos-archivo.ts`. El `type` de un File lo controla el
 atacante: un .html con JavaScript etiquetado `image/jpeg`, servido `inline`,
 correría en nuestro origen con la sesión del admin. Al servirlos tampoco se
-confía en lo guardado, y van con `sandbox` y `nosniff`.
+confía en lo guardado, y van con `sandbox` y `nosniff`. Publicada, la app
+revisa permiso y bitácora y luego redirige a un link de Supabase que caduca
+en 60 s (Vercel no deja salir más de 4.5 MB): el archivo se abre en el
+dominio de Supabase, nunca en el nuestro.
 
 **1. Nada confidencial sale a la cara pública.** `src/lib/publico.ts` tiene una
 **lista blanca**: enumera qué campos pueden salir. Lo que no esté escrito ahí no
@@ -192,6 +197,65 @@ Reglas que ya costaron un bug cada una:
 - `limpiarNombre()` colapsa espacios dobles: quitar la `/` de
   "INE / identificación" dejaba un hueco.
 
+## Subir documentos (comprador y admin)
+
+Los dos caminos usan la misma zona (`components/zona-subida.tsx`) y el mismo
+módulo del servidor (`lib/subida.ts`). Los permisos NO viven ahí: cada acción
+valida primero quién sube y a qué trámite.
+
+**Tres topes que ya mordieron:**
+
+- Next corta los formularios en **1 MB** si no se configura. Una foto de
+  celular pesa 3-5. `next.config.ts` lo sube a 21 MB (para tu computadora).
+- Vercel gratis corta cualquier petición en **4.5 MB**, se configure lo que se
+  configure. Por eso, publicada, el archivo va **directo a Supabase** con un
+  permiso de un solo uso (`prepararSubidaDirecta`) a `_entrantes/<azar>`, y
+  después el servidor lo lee, lo valida por sus bytes y lo acomoda.
+  `esRutaEntrante()` es la puerta: solo acepta esas rutas aleatorias.
+- Las fotos se **achican en el celular** (2400 px, JPEG) antes de subir.
+
+Si la subida directa falla y el archivo mide menos de 4 MB, se manda por el
+formulario. `npm run prod:verificar` prueba la subida directa sin llaves,
+igual que el navegador.
+
+Lo que sube el comprador entra "pendiente" (a Revisar); lo que subes tú entra
+ya aprobado y avanza el trámite (documento, orden de cobro o pago según el
+a/b/c). El ayudante no sube: solo ve y descarga.
+
+Pendiente menor: si alguien sube a `_entrantes/` y cierra la pantalla antes
+de confirmar, el archivo se queda ahí. No es visible para nadie; se puede
+limpiar a mano en Supabase de vez en cuando.
+
+**Topes por quién sube:** comprador y vendedor 20 MB; Erick 50 MB (escrituras;
+es también el máximo por archivo de Supabase gratis). Las fotos se achican con
+una escalera de calidad (2400 px → 1280 px) hasta quedar debajo de 2.5 MB, sin
+preguntar: dejar que el comprador elija "calidad baja" produce INE ilegibles.
+Las fotos del catálogo se suben de una en una por lo mismo.
+
+## Paquetes (pestaña Paquetes)
+
+Varios documentos del expediente en UN PDF, en el orden exacto que los pide
+quien los recibe. Definidos en `src/lib/paquetes.ts` (`PAQUETES`); el primero
+es el del **avalúo**, en el orden del valuador que dictó Erick el 23/09/2026:
+16 → 8, 9, 10 (comprador) → 2, 3, 4 (vendedor) → 25, 26, 27 → 20 → 29 → 30 → 23.
+Otro paquete (notaría, Infonavit) es otra entrada en esa lista.
+
+`armarPaquete()` elige qué va en cada lugar: nunca rechazados, solo el "a" en
+municipales, aprobados antes que pendientes, varias hojas en orden de subida.
+`/api/paquete/[propiedadId]/[paquete]` los une con `pdf-lib` (fotos en hoja
+carta), guarda el resultado en `propiedades/<id>/paquetes/` y lo entrega por
+link temporal. Solo admin, con bitácora.
+
+## Fases de una propiedad
+
+Definidas por Erick el 23/09/2026 en `ETAPAS` (`lib/constants.ts`): adquisición,
+remodelación, proceso de venta, con cliente, trámite, firma, espera de firma
+Infonavit, espera de pago, entrega, concluida. Más "prospecto" y "cancelada",
+fuera del camino. **Los `id` ya guardados no se renombran** aunque cambie la
+etiqueta (`escriturando` se lee "En firma"): renombrar obliga a migrar datos.
+Solo `concluida` y `cancelada` tienen lógica atada. La ficha de la propiedad
+tiene la línea de fases: un toque la mueve y queda en bitácora.
+
 ## El catálogo de 34
 
 Numeración confirmada por Erick: **1 = Poder, 2 = INE**. Vive en
@@ -225,7 +289,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 133 pruebas
+npm test           # las 152 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

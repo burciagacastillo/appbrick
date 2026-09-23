@@ -86,6 +86,11 @@ export const EsquemaGasto = z.object({
   pagadoPor: opcional,
 });
 
+export const EsquemaEtapa = z.object({
+  propiedadId: id,
+  etapa: enumDe(ETAPAS),
+});
+
 export const EsquemaEstadoTramite = z.object({
   tramiteId: id,
   estado: enumDe(ESTADOS_TRAMITE),
@@ -171,6 +176,16 @@ export const EsquemaFichaPublica = z.object({
 export const EsquemaSubidaInvitado = z.object({
   token: z.string().min(20).max(200),
   tramiteId: id,
+});
+
+/** Subida del admin desde el expediente. El archivo se valida aparte, por sus bytes. */
+export const EsquemaSubidaAdmin = z.object({
+  tramiteId: id,
+  /** Solo en municipales: a documento, b orden de cobro, c comprobante de pago. */
+  subTipo: z
+    .enum(["a", "b", "c", ""])
+    .optional()
+    .transform((v) => v || null),
 });
 
 // --- Utilidad ---------------------------------------------------------------

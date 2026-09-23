@@ -110,6 +110,17 @@ async function main() {
         .from(bucket)
         .upload(ruta, Buffer.from("ok"), { contentType: "text/plain" });
       const bajada = subida.error ? null : await sb.storage.from(bucket).download(ruta);
+
+      // Link temporal: así se abren los documentos publicados (Vercel no deja
+      // salir más de 4.5 MB). Se abre sin llaves, como desde el celular.
+      const firmado = subida.error ? null : await sb.storage.from(bucket).createSignedUrl(ruta, 60);
+      const abre = firmado?.data ? (await fetch(firmado.data.signedUrl)).ok : false;
+      anotar(
+        abre,
+        "Abrir documentos (link temporal)",
+        abre ? "Abre sin llaves y caduca en 60 segundos" : "No se pudo abrir con link temporal"
+      );
+
       await sb.storage.from(bucket).remove([ruta]);
 
       anotar(
@@ -118,6 +129,35 @@ async function main() {
         subida.error
           ? `No deja escribir: ${subida.error.message}`
           : "Privado, y se puede escribir, leer y borrar"
+      );
+
+      // Subida directa: la que usan el comprador y tú para archivos de más de
+      // 4.5 MB. Se hace EXACTAMENTE como el navegador: con el permiso de un
+      // solo uso y sin ninguna llave en la petición.
+      const entrante = `_entrantes/verificacion${Date.now()}`;
+      const permiso = await sb.storage.from(bucket).createSignedUploadUrl(entrante);
+      let directa = "No se pudo pedir el permiso";
+      if (permiso.data) {
+        const cuerpo = new FormData();
+        cuerpo.append("cacheControl", "3600");
+        cuerpo.append("", new Blob([Buffer.from("%PDF-1.4 prueba")]), "prueba.pdf");
+        const r = await fetch(permiso.data.signedUrl, {
+          method: "PUT",
+          body: cuerpo,
+          headers: { "x-upsert": "false" },
+        });
+        const leido = r.ok ? await sb.storage.from(bucket).download(entrante) : null;
+        directa = !r.ok
+          ? `Supabase respondió ${r.status}: ${(await r.text()).slice(0, 120)}`
+          : leido?.error
+            ? "Subió pero no se pudo leer"
+            : "ok";
+        await sb.storage.from(bucket).remove([entrante]);
+      }
+      anotar(
+        directa === "ok",
+        "Subida directa (archivos grandes)",
+        directa === "ok" ? "Funciona sin llaves, como desde el celular" : directa
       );
     }
   }

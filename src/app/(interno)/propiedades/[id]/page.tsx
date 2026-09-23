@@ -4,6 +4,8 @@ import { obtenerPropiedad } from "@/lib/queries";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO, Stat } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
+import { LineaDeFases } from "@/components/fases";
+import { Paquetes } from "@/components/paquetes";
 import { TablaGastos } from "@/components/gastos";
 import { Publicacion } from "@/components/publicacion";
 import { Personas } from "@/components/personas";
@@ -18,6 +20,7 @@ const TABS = [
   { id: "personas", label: "Personas" },
   { id: "gastos", label: "Gastos" },
   { id: "datos", label: "Datos" },
+  { id: "paquetes", label: "Paquetes" },
   { id: "publicar", label: "Publicar" },
 ] as const;
 
@@ -55,6 +58,8 @@ export default async function DetallePropiedad({
         ) : null}
         {p.notas ? <p className="mt-2 max-w-2xl text-sm text-tenue">{p.notas}</p> : null}
       </div>
+
+      <LineaDeFases propiedadId={p.id} actual={p.etapa} />
 
       {/* Resumen rápido */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -122,6 +127,8 @@ export default async function DetallePropiedad({
       {tabActual === "personas" ? <Personas propiedad={p} /> : null}
 
       {tabActual === "gastos" ? <TablaGastos propiedad={p} /> : null}
+
+      {tabActual === "paquetes" ? <Paquetes propiedad={p} /> : null}
 
       {tabActual === "publicar" ? <Publicacion propiedad={p} /> : null}
 

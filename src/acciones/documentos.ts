@@ -4,12 +4,15 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
+import { prepararSubidaDirecta, TAMANO_MAXIMO_ADMIN } from "@/lib/almacen";
+import { recibirArchivo, guardarDocumento } from "@/lib/subida";
 import {
   validar,
   validarOTronar,
   EsquemaDocumentoId,
   EsquemaRechazo,
   EsquemaFechaDocumento,
+  EsquemaSubidaAdmin,
 } from "@/lib/esquemas";
 
 // Revisión de documentos. Solo admin: aprobar o rechazar decide si un
@@ -160,4 +163,103 @@ export async function corregirFecha(formData: FormData) {
   });
 
   refrescarRevision(documento.propiedadId);
+}
+
+// ---------------------------------------------------------------------------
+// Subida desde el expediente (admin)
+// ---------------------------------------------------------------------------
+
+export type ResultadoSubidaAdmin = { ok: true; mensaje: string } | { ok: false; error: string };
+export type PermisoSubidaAdmin = { ruta: string; url: string } | null | { error: string };
+
+/** Paso 1 (solo publicada): permiso para mandar el archivo directo a Supabase. */
+export async function prepararSubidaAdmin(): Promise<PermisoSubidaAdmin> {
+  await exigirAdmin();
+  return prepararSubidaDirecta();
+}
+
+/**
+ * Paso 2: tu propio documento, subido desde la propiedad. Entra ya aprobado
+ * (no tiene caso que te revises a ti mismo) y marca el trámite como avanzado:
+ * el documento, la orden de cobro o el pago, según lo que subiste.
+ */
+export async function subirDocumentoAdmin(
+  _previo: ResultadoSubidaAdmin | null,
+  formData: FormData
+): Promise<ResultadoSubidaAdmin> {
+  const usuario = await exigirAdmin();
+
+  const v = validar(EsquemaSubidaAdmin, formData);
+  if (!v.ok) {
+    await recibirArchivo(formData); // limpia la sala de espera
+    return { ok: false, error: v.error };
+  }
+
+  const tramite = await db.tramite.findUnique({
+    where: { id: v.datos.tramiteId },
+    include: { catalogo: true, propiedad: { select: { id: true, nombre: true } } },
+  });
+  if (!tramite || tramite.catalogo.esDato) {
+    await recibirArchivo(formData);
+    return {
+      ok: false,
+      error: tramite ? "Este trámite no lleva archivo: se captura en Personas." : "Ese trámite no existe.",
+    };
+  }
+
+  // El a/b/c solo tiene sentido en los municipales (los que llevan pago).
+  const subTipo = tramite.catalogo.requierePago ? (v.datos.subTipo ?? "a") : null;
+
+  const archivo = await recibirArchivo(formData);
+  if (!archivo.ok) return archivo;
+
+  const guardado = await guardarDocumento({
+    propiedad: tramite.propiedad,
+    tramite,
+    subTipo,
+    contenido: archivo.contenido,
+    nombreOriginal: archivo.nombreOriginal,
+    estado: "aprobado",
+    subidoPor: { tipo: "admin", usuarioId: usuario.id },
+    maximo: TAMANO_MAXIMO_ADMIN,
+  });
+  if (!guardado.ok) return guardado;
+  if (guardado.duplicado) return { ok: true, mensaje: "Ese archivo ya estaba en este trámite." };
+
+  const marca =
+    subTipo === "b"
+      ? { ordenDeCobro: true }
+      : subTipo === "c"
+        ? { pagoComprobado: true }
+        : { docRecibido: true };
+  const despues = { ...tramite, ...marca };
+  // En los municipales hace falta el documento Y el pago; en los demás basta
+  // el documento. "No aplica" es tu decisión y no se pisa.
+  const cierra = tramite.catalogo.requierePago
+    ? despues.docRecibido && despues.pagoComprobado
+    : true;
+
+  await db.tramite.update({
+    where: { id: tramite.id },
+    data: {
+      ...marca,
+      ...(cierra && tramite.estado !== "no_aplica" && tramite.estado !== "completo"
+        ? { estado: "completo", fechaHecho: new Date() }
+        : {}),
+      actualizadoPorId: usuario.id,
+    },
+  });
+
+  await registrar({
+    tipoActor: "admin",
+    actor: usuario.nombre,
+    accion: "subio",
+    entidad: "documento",
+    entidadId: guardado.documentoId,
+    detalle: `${guardado.nombreArchivo} — ${tramite.propiedad.nombre}`,
+  });
+
+  refrescarRevision(tramite.propiedadId);
+  revalidatePath("/propiedades");
+  return { ok: true, mensaje: "Listo, quedó guardado." };
 }

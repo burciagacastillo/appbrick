@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { usuarioActual } from "@/lib/sesion";
 import { exige2fa, puedeVerPropiedad } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
-import { leer } from "@/lib/almacen";
+import { leer, enlaceTemporal } from "@/lib/almacen";
 import { tipoParaServir } from "@/lib/tipos-archivo";
 
 // Entrega de un documento del expediente. NUNCA se sirven estos archivos
@@ -42,9 +42,22 @@ export async function GET(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  let contenido: Buffer;
+  // Ni siquiera se confía en el tipo guardado: si algo se coló antes de que
+  // existiera la validación por bytes, se degrada a descarga binaria en vez
+  // de ejecutarse en el navegador.
+  const servir = tipoParaServir(documento.mimeType);
+  const forzarDescarga = descargar || servir.forzarDescarga;
+
+  // Publicada: link de Supabase que caduca en 60 s. Vercel no deja pasar
+  // más de 4.5 MB de regreso, y una escritura pesa 10. El permiso ya se
+  // revisó arriba; el registro se deja antes de soltar el link.
+  let enlace: string | null;
+  let contenido: Buffer | null = null;
   try {
-    contenido = await leer(documento.ruta);
+    enlace = await enlaceTemporal(documento.ruta, {
+      descargarComo: forzarDescarga ? documento.nombreArchivo : undefined,
+    });
+    if (!enlace) contenido = await leer(documento.ruta);
   } catch {
     // El registro existe pero el archivo no está: se avisa en vez de tronar.
     return NextResponse.json(
@@ -62,13 +75,17 @@ export async function GET(
     detalle: `${documento.nombreArchivo} — ${documento.propiedad.nombre}`,
   });
 
-  // Ni siquiera se confía en el tipo guardado: si algo se coló antes de que
-  // existiera la validación por bytes, se degrada a descarga binaria en vez
-  // de ejecutarse en el navegador.
-  const servir = tipoParaServir(documento.mimeType);
-  const disposicion = descargar || servir.forzarDescarga ? "attachment" : "inline";
+  if (enlace) {
+    return NextResponse.redirect(enlace, {
+      status: 302,
+      headers: { "Cache-Control": "private, no-store" },
+    });
+  }
 
-  return new NextResponse(new Uint8Array(contenido), {
+  // En tu computadora: se entrega directo, con todas las protecciones.
+  const disposicion = forzarDescarga ? "attachment" : "inline";
+
+  return new NextResponse(new Uint8Array(contenido!), {
     headers: {
       "Content-Type": servir.contentType,
       "Content-Disposition": `${disposicion}; filename="${encodeURIComponent(documento.nombreArchivo)}"`,

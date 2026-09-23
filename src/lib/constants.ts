@@ -1,15 +1,23 @@
 // Vocabulario del negocio. SQLite no tiene enums, así que los valores válidos
 // viven aquí y TypeScript los cuida. Al pasar a Postgres se vuelven enums reales.
 
+// Fases de una propiedad, en el orden del negocio (definidas por Erick el
+// 23/09/2026). Los `id` ya guardados en la base NO se renombran aunque cambie
+// su etiqueta ("escriturando" hoy se lee "En firma"): renombrarlos obligaría a
+// migrar datos. `enCamino: false` = fuera del camino normal (antes o fuera).
 export const ETAPAS = [
-  { id: "prospecto", label: "Prospecto", desc: "En la mira, todavía no es mía", color: "slate" },
-  { id: "adquisicion", label: "En adquisición", desc: "Negociando o firmando el poder", color: "amber" },
-  { id: "remodelacion", label: "En remodelación", desc: "Obra en curso", color: "orange" },
-  { id: "en_venta", label: "En venta", desc: "Publicada, buscando comprador", color: "blue" },
-  { id: "en_tramite", label: "En trámite", desc: "Comprador con crédito en proceso", color: "violet" },
-  { id: "escriturando", label: "Escriturando", desc: "En notaría, a punto de cerrar", color: "cyan" },
-  { id: "concluida", label: "Concluida", desc: "Vendida y escriturada", color: "emerald" },
-  { id: "cancelada", label: "Cancelada", desc: "Se cayó la operación", color: "rose" },
+  { id: "prospecto", label: "Prospecto", desc: "En la mira, todavía no es mía", color: "slate", enCamino: false },
+  { id: "adquisicion", label: "En adquisición", desc: "Negociando o firmando el poder", color: "amber", enCamino: true },
+  { id: "remodelacion", label: "En remodelación", desc: "Obra en curso", color: "orange", enCamino: true },
+  { id: "en_venta", label: "En proceso de venta", desc: "Lista para venderse, todavía sin cliente", color: "blue", enCamino: true },
+  { id: "con_cliente", label: "Con cliente", desc: "Ya hay comprador", color: "sky", enCamino: true },
+  { id: "en_tramite", label: "En trámite", desc: "Crédito del comprador en proceso", color: "violet", enCamino: true },
+  { id: "escriturando", label: "En firma", desc: "Firmando la escritura en notaría", color: "indigo", enCamino: true },
+  { id: "espera_infonavit", label: "Espera de firma Infonavit", desc: "Ya firmaron; falta que firme Infonavit", color: "fuchsia", enCamino: true },
+  { id: "espera_pago", label: "Espera de pago", desc: "Falta que caiga el dinero", color: "cyan", enCamino: true },
+  { id: "entrega", label: "Entrega de vivienda", desc: "Falta entregar la casa", color: "teal", enCamino: true },
+  { id: "concluida", label: "Concluida", desc: "Vendida, pagada y entregada", color: "emerald", enCamino: true },
+  { id: "cancelada", label: "Cancelada", desc: "Se cayó la operación", color: "rose", enCamino: false },
 ] as const;
 
 export type EtapaId = (typeof ETAPAS)[number]["id"];

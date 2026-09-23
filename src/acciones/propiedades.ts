@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
+import { registrar } from "@/lib/bitacora";
+import { etapa as buscarEtapa } from "@/lib/constants";
 import {
   validar,
   validarOTronar,
+  EsquemaEtapa,
   EsquemaEstadoTramite,
   EsquemaSubdoc,
   EsquemaDetalleTramite,
@@ -24,6 +27,31 @@ function refrescarPropiedad(propiedadId: string) {
   revalidatePath(`/propiedades/${propiedadId}`);
   revalidatePath("/propiedades");
   revalidatePath("/");
+}
+
+/** Mueve la propiedad de fase con un toque, desde la línea de fases de su ficha. */
+export async function cambiarEtapa(formData: FormData) {
+  const usuario = await exigirAdmin();
+  const { propiedadId, etapa } = validarOTronar(EsquemaEtapa, formData);
+
+  const antes = await db.propiedad.findUnique({
+    where: { id: propiedadId },
+    select: { etapa: true, nombre: true },
+  });
+  if (!antes || antes.etapa === etapa) return;
+
+  await db.propiedad.update({ where: { id: propiedadId }, data: { etapa } });
+
+  await registrar({
+    tipoActor: "admin",
+    actor: usuario.nombre,
+    accion: "cambio_etapa",
+    entidad: "propiedad",
+    entidadId: propiedadId,
+    detalle: `${antes.nombre}: ${buscarEtapa(antes.etapa).label} → ${buscarEtapa(etapa).label}`,
+  });
+
+  refrescarPropiedad(propiedadId);
 }
 
 /** Cambia el estado de un trámite: falta / revisar / completo / no_aplica. */

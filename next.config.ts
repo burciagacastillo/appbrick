@@ -20,6 +20,15 @@ const CABECERAS = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Por defecto Next corta en 1 MB, y una foto de celular pesa 3-5. En tu
+      // computadora el archivo viaja por aquí. Publicada va directo a
+      // Supabase (Vercel gratis no deja pasar más de 4.5 MB de todos modos).
+      // El tope real (20 MB el comprador, 50 tú) lo pone validarArchivo().
+      bodySizeLimit: "51mb",
+    },
+  },
   async headers() {
     return [{ source: "/:path*", headers: CABECERAS }];
   },

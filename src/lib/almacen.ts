@@ -1,6 +1,7 @@
 import { mkdir, writeFile, readFile, unlink, access } from "node:fs/promises";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, dirname, resolve, sep, posix } from "node:path";
+import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { tipoReal, esImagen, type TipoSeguro } from "./tipos-archivo";
 
@@ -58,6 +59,14 @@ const RAIZ = join(process.cwd(), "almacen");
 
 /** 20 MB. Una foto de celular pesa 3-5 MB; un PDF escaneado rara vez más. */
 export const TAMANO_MAXIMO = 20 * 1024 * 1024;
+
+/**
+ * 50 MB para lo que sube Erick: una escritura escaneada es lo más pesado del
+ * expediente. Es también el tope por archivo de Supabase gratis. Solo es
+ * posible porque, publicada, el archivo va directo a Supabase y no pasa por
+ * Vercel (que corta en 4.5 MB).
+ */
+export const TAMANO_MAXIMO_ADMIN = 50 * 1024 * 1024;
 
 /**
  * Limpia un nombre de archivo. Esto NO es cosmético: sin esto, alguien puede
@@ -129,7 +138,7 @@ function resolverDentroDelAlmacen(rutaRelativa: string): string {
 }
 
 /** Carpeta de una propiedad dentro del almacén. */
-export function carpetaDe(propiedadId: string, tipo: "documentos" | "fotos") {
+export function carpetaDe(propiedadId: string, tipo: "documentos" | "fotos" | "paquetes") {
   return posix.join("propiedades", limpiarNombre(propiedadId), tipo);
 }
 
@@ -221,6 +230,88 @@ export async function existe(rutaRelativa: string): Promise<boolean> {
   }
 }
 
+// --- Entrega directa -----------------------------------------------------------
+//
+// Vercel también corta en 4.5 MB lo que ENTREGA, no solo lo que recibe: un PDF
+// de 10 MB servido a través de la app nunca llegaría. Publicada, la app revisa
+// el permiso, deja el registro en bitácora y después manda al navegador a un
+// link de Supabase que caduca en segundos.
+
+/** Link temporal de lectura (solo publicada; null en tu computadora). */
+export async function enlaceTemporal(
+  rutaRelativa: string,
+  opciones: { segundos?: number; descargarComo?: string } = {}
+): Promise<string | null> {
+  if (destino() !== "supabase") return null;
+
+  const ruta = rutaSegura(rutaRelativa);
+  const { data, error } = await supabase()
+    .storage.from(BUCKET)
+    .createSignedUrl(
+      ruta,
+      opciones.segundos ?? 60,
+      opciones.descargarComo ? { download: opciones.descargarComo } : undefined
+    );
+  if (error || !data) throw new Error(`No se encontró el archivo: ${ruta}`);
+  return data.signedUrl;
+}
+
+/**
+ * Guarda en una ruta FIJA, reemplazando lo que hubiera (a diferencia de
+ * guardar(), que nunca pisa). Para archivos que se regeneran, como el paquete
+ * del avalúo: no tiene caso acumular versiones viejas.
+ */
+export async function guardarReemplazando(
+  rutaRelativa: string,
+  contenido: Buffer,
+  tipo: string
+): Promise<string> {
+  const ruta = rutaSegura(rutaRelativa);
+
+  if (destino() === "supabase") {
+    const { error } = await supabase()
+      .storage.from(BUCKET)
+      .upload(ruta, contenido, { contentType: tipo, upsert: true });
+    if (error) throw new Error(`No se pudo guardar: ${error.message}`);
+    return ruta;
+  }
+
+  const absoluta = resolverDentroDelAlmacen(ruta);
+  await mkdir(dirname(absoluta), { recursive: true });
+  await writeFile(absoluta, contenido);
+  return ruta;
+}
+
+// --- Subida directa ----------------------------------------------------------
+//
+// Vercel gratis corta cualquier petición de más de 4.5 MB, y una escritura
+// escaneada pesa 10. Por eso, publicada, el navegador manda el archivo DIRECTO
+// a Supabase con un permiso de un solo uso, a una "sala de espera"
+// (_entrantes/). Después la app lo lee de ahí, lo valida por sus bytes igual
+// que siempre, y lo acomoda en su lugar definitivo. El navegador nunca decide
+// dónde queda el archivo: solo recibe un nombre al azar en la sala de espera.
+
+export const PREFIJO_ENTRANTES = "_entrantes/";
+
+/** ¿Es una ruta de las que genera prepararSubidaDirecta? Solo esas se aceptan. */
+export function esRutaEntrante(ruta: string): boolean {
+  return /^_entrantes\/[a-f0-9]{32}$/.test(ruta);
+}
+
+/**
+ * Permiso de subida directa a la sala de espera. Devuelve null en tu
+ * computadora (almacén local): ahí no hay límite de 4.5 MB y el archivo viaja
+ * por el formulario de siempre.
+ */
+export async function prepararSubidaDirecta(): Promise<{ ruta: string; url: string } | null> {
+  if (destino() !== "supabase") return null;
+
+  const ruta = `${PREFIJO_ENTRANTES}${randomBytes(16).toString("hex")}`;
+  const { data, error } = await supabase().storage.from(BUCKET).createSignedUploadUrl(ruta);
+  if (error || !data) throw new Error(`No se pudo preparar la subida: ${error?.message}`);
+  return { ruta, url: data.signedUrl };
+}
+
 /**
  * Valida un archivo subido. NO confía en el mimeType que declara el
  * navegador: lo deduce de los bytes. Devuelve el tipo verificado, que es el
@@ -228,16 +319,23 @@ export async function existe(rutaRelativa: string): Promise<boolean> {
  */
 export function validarArchivo(
   contenido: Buffer,
-  opciones: { soloImagenes?: boolean } = {}
+  opciones: { soloImagenes?: boolean; maximo?: number } = {}
 ):
   | { ok: true; tipo: TipoSeguro; extension: string }
   | { ok: false; error: string } {
+  const maximo = opciones.maximo ?? TAMANO_MAXIMO;
   if (contenido.length === 0) {
     return { ok: false, error: "El archivo llegó vacío." };
   }
-  if (contenido.length > TAMANO_MAXIMO) {
-    const mb = Math.round(TAMANO_MAXIMO / 1024 / 1024);
-    return { ok: false, error: `El archivo pasa de ${mb} MB.` };
+  if (contenido.length > maximo) {
+    const pesa = Math.ceil(contenido.length / 1024 / 1024);
+    const tope = Math.round(maximo / 1024 / 1024);
+    return {
+      ok: false,
+      error:
+        `El archivo pesa ${pesa} MB y el máximo es ${tope} MB. Si es un escaneo, ` +
+        "escanéalo a menor resolución o tómale foto a cada hoja.",
+    };
   }
 
   const real = tipoReal(contenido);
