@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Smartphone } from "lucide-react";
 import { usuarioPendiente2fa } from "@/lib/sesion";
 import { entrarConCodigo } from "@/acciones/sesion";
 import { FormaCodigo } from "@/components/forma-codigo";
@@ -12,18 +13,23 @@ export default async function PaginaCodigo() {
   if (!(await usuarioPendiente2fa())) redirect("/entrar");
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
-      <div className="grid h-9 w-9 place-items-center rounded-lg bg-gold-500 text-sm font-bold text-brick-900">
-        B
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-12">
+      <div className="rounded-tarjeta bg-white p-8 shadow-suave ring-1 ring-black/[0.03] sm:p-10">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-100 text-tinta">
+          <Smartphone className="h-5 w-5" strokeWidth={1.75} />
+        </span>
+        <h1 className="mt-8 text-2xl font-bold tracking-tight">Código de tu celular</h1>
+        <p className="mt-2 text-sm leading-relaxed text-tenue">
+          Abre tu app autenticadora y escribe los 6 números de AppBrick.
+        </p>
+
+        <FormaCodigo accion={entrarConCodigo} boton="Entrar" />
       </div>
-      <h1 className="mt-6 text-xl font-semibold">Código de tu celular</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Abre tu app autenticadora y escribe los 6 números de AppBrick.
-      </p>
 
-      <FormaCodigo accion={entrarConCodigo} boton="Entrar" />
-
-      <Link href="/entrar" className="mt-4 text-center text-xs text-slate-500 hover:underline">
+      <Link
+        href="/entrar"
+        className="mt-6 text-center text-sm text-tenue transition-colors hover:text-tinta"
+      >
         Volver a empezar
       </Link>
     </main>

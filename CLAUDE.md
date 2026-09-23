@@ -33,8 +33,10 @@ Una **Propiedad** tiene un **expediente de 34 trámites**, una **bitácora de ga
   publicada en **Supabase**. Migraciones en `prisma/migrations/`.
 - Publicada en **Vercel** (plan gratis, decisión de Erick sabiendo que sus
   términos prohíben uso comercial; pasar a Pro no toca el código).
-- Archivos en `almacen/` (fuera de git). Un solo componente de cliente:
-  `subir-form.tsx`, y existe porque el invitado sube fotos con señal mala.
+- Archivos en `almacen/` (fuera de git). Componentes de cliente solo donde
+  hace falta estado en el navegador: formularios con respuesta
+  (`formularios.tsx`, `subir-form.tsx`), el menú (`navegacion.tsx`, para
+  marcar la pestaña activa) y la gráfica de egresos.
 
 ## Trámites que son dato, no archivo
 
@@ -71,9 +73,16 @@ devuelven la sesión — para que la página necesite ese valor y no se pueda
 El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 `/equipo`. El acceso puede tener fecha de vencimiento.
 
+**Las rutas de `api/` no pasan por las páginas**, así que no heredan el
+"activa tu segundo factor" de `exigirAdmin()`. Cada una revisa por su cuenta
+`exige2fa() && !mfaVerificado` (hasta el 23/09/2026 la de documentos no lo
+hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
+`/api/foto` entrega fotos de casas sin publicar solo al admin y con
+`no-store`; las publicadas, a cualquiera con caché larga.
+
 ## Pruebas
 
-`npm test` — 130 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 133 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -84,6 +93,7 @@ El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 | `limitador.test.ts` | El freno de fuerza bruta |
 | `acciones/sesion.test.ts` | Login contra la base real, incluido el bloqueo |
 | `acciones/personas.test.ts` | Que la contraseña llegue CIFRADA a la columna, y los trámites de dato |
+| `egresos.test.ts` | La gráfica de /gastos: meses en UTC (un gasto del día 1 no se brinca al mes anterior) y meses vacíos en cero |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -215,7 +225,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 90 pruebas
+npm test           # las 133 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente
@@ -246,6 +256,26 @@ cualquiera con sesión puede mandar un FormData armado a mano.
 - Dinero en MXN con el helper `mxn()`. Columnas de números con `.tabular`.
 - Colores de marca: `brick-*` (navy #1F3864) y `gold-*`.
 - Server Actions en `src/acciones/`, fuera del árbol de rutas.
+
+## Diseño (desde el 23/09/2026)
+
+**Solo modo claro**, estilo Apple/Linear. Antes el fondo seguía al modo
+oscuro de Windows y las tarjetas no: se veía "oscuro y saturado".
+`globals.css` desactiva la variante `dark:` — no volver a agregarla.
+
+- Tokens en `@theme` de `globals.css`: `tinta` (#0F172A), `tenue` (#64748B),
+  `linea`, `fondo` (#F3F4F6), `acento` (#2563EB, **solo** para resaltar un
+  dato en una gráfica), `rounded-tarjeta` (20px), `shadow-suave`.
+- Todo lo repetido vive en `src/components/ui.tsx`: `Card`, `Stat` (número en
+  negro + `insignia` que carga el tono), `Encabezado`, `Vacio` (con `icono` y
+  `titulo` es el estado vacío grande), `MenuAcciones`, y las clases
+  `BOTON_PRIMARIO` (negro sólido), `BOTON_SECUNDARIO`, `BOTON_EXITO`.
+- Íconos: `lucide-react`, trazo 1.5–1.75.
+- Las insignias de % solo muestran números que salen de datos reales
+  (margen sobre inversión, cambio contra el mes pasado). Nada de "crecimientos"
+  decorativos.
+- Menú lateral + barra superior con buscador (`/buscar`, solo admin; el
+  ayudante busca en `/ayudante`) y botón **Crear**.
 
 ## Pendiente
 

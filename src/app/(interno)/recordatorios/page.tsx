@@ -2,7 +2,17 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { recordatorios, type FilaRecordatorio } from "@/lib/queries";
-import { Card, CardHeader, Badge, Barra, Vacio } from "@/components/ui";
+import { MessageCircle } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  Badge,
+  Barra,
+  Vacio,
+  Encabezado,
+  BOTON_EXITO,
+  BOTON_SECUNDARIO,
+} from "@/components/ui";
 import { FormaInvitar } from "@/components/formularios";
 import { fechaCorta } from "@/lib/constants";
 import { urlDelPortal, mensajeWhatsApp, linkWhatsAppA } from "@/lib/invitaciones";
@@ -44,9 +54,13 @@ function Fila({ f }: { f: FilaRecordatorio }) {
   const linkWa = linkWhatsAppA(f.invitacion.persona.telefono, mensaje);
 
   return (
-    <li className="px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+    <li className="px-6 py-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-semibold">
+            {f.invitacion.persona.nombre.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{f.invitacion.persona.nombre}</span>
             <Badge color={f.invitacion.rol === "comprador" ? "blue" : "violet"}>
@@ -62,7 +76,7 @@ function Fila({ f }: { f: FilaRecordatorio }) {
           <p className="mt-0.5 text-xs text-slate-500">
             <Link
               href={`/propiedades/${encodeURIComponent(f.invitacion.propiedadId)}`}
-              className="font-medium text-brick-700 hover:underline dark:text-gold-400"
+              className="font-medium text-brick-700 hover:underline"
             >
               {f.invitacion.propiedad.nombre}
             </Link>
@@ -81,36 +95,30 @@ function Fila({ f }: { f: FilaRecordatorio }) {
               <> · vence {fechaCorta(f.invitacion.expiraEn)}</>
             ) : null}
           </p>
+          </div>
         </div>
 
         <div className="flex shrink-0 flex-wrap gap-2">
           {linkWa ? (
-            <a
-              href={linkWa}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-            >
+            <a href={linkWa} target="_blank" rel="noreferrer" className={BOTON_EXITO}>
+              <MessageCircle className="h-4 w-4" strokeWidth={1.75} />
               Mandar por WhatsApp
             </a>
           ) : (
-            <span className="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-500 dark:border-brick-700">
+            <span className="rounded-xl bg-slate-100 px-3 py-2 text-xs text-tenue">
               Falta su teléfono
             </span>
           )}
           <form action={revocarInvitacion}>
             <input type="hidden" name="invitacionId" value={f.invitacion.id} />
-            <button
-              type="submit"
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50 dark:border-brick-700 dark:hover:bg-brick-800"
-            >
+            <button type="submit" className={BOTON_SECUNDARIO}>
               Revocar
             </button>
           </form>
         </div>
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-4 flex items-center gap-3 sm:pl-[54px]">
         <div className="flex-1">
           <Barra porcentaje={f.porcentaje} />
         </div>
@@ -119,12 +127,12 @@ function Fila({ f }: { f: FilaRecordatorio }) {
         </span>
       </div>
 
-      <details className="mt-2">
-        <summary className="cursor-pointer list-none text-xs text-brick-700 hover:underline dark:text-gold-400">
+      <details className="mt-3 sm:pl-[54px]">
+        <summary className="cursor-pointer list-none text-xs font-medium text-tenue hover:text-tinta">
           Ver el mensaje y el link
         </summary>
         <div className="mt-2 space-y-2">
-          <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-brick-800 dark:text-slate-300">
+          <pre className="whitespace-pre-wrap rounded-2xl bg-fondo p-4 font-sans text-xs text-slate-600">
             {mensaje}
           </pre>
           <p className="break-all font-mono text-xs text-slate-400">{url}</p>
@@ -150,28 +158,28 @@ export default async function Recordatorios() {
   const alCorriente = filas.filter((f) => f.urgencia === 0);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Recordatorios</h1>
-        <p className="text-sm text-slate-500">
-          {requierenEmpujon.length === 0
-            ? "Nadie necesita que le insistas hoy."
+    <div className="space-y-8">
+      <Encabezado
+        titulo="Recordatorios"
+        descripcion={
+          requierenEmpujon.length === 0
+            ? "Nadie necesita que le insistas hoy"
             : `${requierenEmpujon.length} ${
-                requierenEmpujon.length === 1
-                  ? "persona necesita"
-                  : "personas necesitan"
-              } un empujón`}
-        </p>
-      </div>
+                requierenEmpujon.length === 1 ? "persona necesita" : "personas necesitan"
+              } un empujón`
+        }
+      />
 
-      <Card>
-        <CardHeader titulo="Mandar un link nuevo" />
-        {propiedades.length === 0 ? (
-          <Vacio>No hay propiedades activas.</Vacio>
-        ) : (
-          <FormaInvitar propiedades={propiedades} />
-        )}
-      </Card>
+      <div id="invitar" className="scroll-mt-24">
+        <Card>
+          <CardHeader titulo="Mandar un link nuevo" />
+          {propiedades.length === 0 ? (
+            <Vacio>No hay propiedades activas.</Vacio>
+          ) : (
+            <FormaInvitar propiedades={propiedades} />
+          )}
+        </Card>
+      </div>
 
       {[
         { titulo: "Necesitan un empujón", items: requierenEmpujon },
@@ -183,7 +191,7 @@ export default async function Recordatorios() {
               titulo={seccion.titulo}
               extra={<span className="text-xs text-slate-500">{seccion.items.length}</span>}
             />
-            <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+            <ul className="divide-y divide-slate-100">
               {seccion.items.map((f) => (
                 <Fila key={f.invitacion.id} f={f} />
               ))}

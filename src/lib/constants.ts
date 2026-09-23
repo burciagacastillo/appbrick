@@ -107,6 +107,17 @@ export function labelCategoria(id: string) {
   return categoriaGasto(id)?.label ?? id;
 }
 
+/** Pesos en corto para ejes de gráficas: $0, $850 k, $1.2 M. */
+export function mxnCorto(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)} M`;
+  if (n >= 1_000) return `$${Math.round(n / 1_000)} k`;
+  return `$${Math.round(n)}`;
+}
+
+export function rolPersona(id: string) {
+  return ROLES_PERSONA.find((r) => r.id === id)?.label ?? id;
+}
+
 /** Formatea a pesos mexicanos sin decimales, que es como los lees tú. */
 export function mxn(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";

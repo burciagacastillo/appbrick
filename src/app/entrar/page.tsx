@@ -12,21 +12,20 @@ export default async function Entrar() {
   if (usuario) redirect(usuario.esAdmin ? "/" : "/ayudante");
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-12">
-      <div className="flex items-center gap-2">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-gold-500 text-sm font-bold text-brick-900">
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-5 py-12">
+      <div className="rounded-tarjeta bg-white p-8 shadow-suave ring-1 ring-black/[0.03] sm:p-10">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brick-800 text-base font-bold text-gold-400">
           B
-        </div>
-        <span className="font-semibold tracking-tight">AppBrick</span>
+        </span>
+
+        <h1 className="mt-8 text-2xl font-bold tracking-tight">Entrar a AppBrick</h1>
+        <p className="mt-2 text-sm leading-relaxed text-tenue">
+          Acceso para el equipo de Grupo Brick. Si eres comprador o vendedor,
+          usa el link que te mandaron por WhatsApp.
+        </p>
+
+        <FormaEntrar />
       </div>
-
-      <h1 className="mt-6 text-xl font-semibold">Entrar</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Acceso para Grupo Brick. Si eres comprador o vendedor, usa el link que
-        te mandaron por WhatsApp.
-      </p>
-
-      <FormaEntrar />
     </main>
   );
 }

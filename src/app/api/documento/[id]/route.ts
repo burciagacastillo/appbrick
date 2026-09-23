@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { usuarioActual } from "@/lib/sesion";
-import { puedeVerPropiedad } from "@/lib/permisos";
+import { exige2fa, puedeVerPropiedad } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { leer } from "@/lib/almacen";
 import { tipoParaServir } from "@/lib/tipos-archivo";
@@ -21,6 +21,12 @@ export async function GET(
   const usuario = await usuarioActual();
   if (!usuario) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  // Las páginas mandan al admin a activar el segundo factor, pero esta ruta
+  // no pasa por ellas: sin este corte, la contraseña sola bajaba documentos
+  // mientras el segundo factor no estuviera activado.
+  if (usuario.esAdmin && exige2fa() && !usuario.mfaVerificado) {
+    return NextResponse.json({ error: "Activa tu segundo factor" }, { status: 401 });
   }
 
   const documento = await db.documento.findUnique({

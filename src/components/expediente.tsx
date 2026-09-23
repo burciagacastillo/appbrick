@@ -22,10 +22,10 @@ function CicloPago({ t }: { t: Tramite }) {
           <input type="hidden" name="campo" value={p.campo} />
           <button
             type="submit"
-            className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+            className={`rounded-lg border px-2 py-1 text-xs transition-colors ${
               p.activo
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-600/50 dark:bg-emerald-500/15 dark:text-emerald-200"
-                : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 dark:border-brick-700 dark:bg-brick-800 dark:text-slate-400"
+                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                : "border-linea bg-white text-slate-500 hover:border-slate-300"
             }`}
           >
             <span className="font-semibold">{p.sufijo}</span> {p.label}{" "}
@@ -43,9 +43,9 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
 
   return (
     <li
-      className={`px-4 py-3 ${
+      className={`px-6 py-4 ${
         t.estado === "no_aplica" ? "opacity-50" : ""
-      } ${vencido ? "bg-rose-50/60 dark:bg-rose-500/5" : ""}`}
+      } ${vencido ? "bg-rose-50/60" : ""}`}
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 w-6 shrink-0 text-right text-xs font-semibold text-slate-400 tabular">
@@ -78,7 +78,7 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
                     href={`/api/documento/${d.id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="truncate font-mono text-brick-700 hover:underline dark:text-gold-400"
+                    className="truncate font-mono text-brick-700 hover:underline"
                     title={d.nombreArchivo}
                   >
                     {d.nombreArchivo}
@@ -99,7 +99,7 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
           ) : null}
 
           {alerta ? (
-            <p className="mt-1 text-xs italic text-amber-700 dark:text-amber-300">
+            <p className="mt-1 text-xs italic text-amber-700">
               Ya hay orden de cobro pero no se ve el comprobante de pago.
             </p>
           ) : null}
@@ -116,7 +116,7 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
               <span className="text-slate-500">Este no se sube, se captura. </span>
               <Link
                 href={`/propiedades/${encodeURIComponent(propiedadId)}?tab=personas`}
-                className="font-medium text-brick-700 hover:underline dark:text-gold-400"
+                className="font-medium text-brick-700 hover:underline"
               >
                 Ir a Personas →
               </Link>
@@ -126,12 +126,12 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
           {t.catalogo.requierePago ? <CicloPago t={t} /> : null}
 
           <details className="mt-2 group">
-            <summary className="cursor-pointer list-none text-xs text-brick-700 hover:underline dark:text-gold-400">
+            <summary className="cursor-pointer list-none text-xs text-brick-700 hover:underline">
               Detalles
             </summary>
             <form
               action={guardarDetalleTramite}
-              className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 dark:bg-brick-800"
+              className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2"
             >
               <input type="hidden" name="tramiteId" value={t.id} />
               <label className="text-xs">
@@ -161,7 +161,7 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
                   step="0.01"
                   name="costo"
                   defaultValue={t.costo ?? ""}
-                  className="mt-0.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm tabular dark:border-brick-700 dark:bg-brick-900"
+                  className="mt-0.5 w-full rounded-xl border border-linea px-2 py-1.5 text-sm tabular"
                 />
               </label>
               <label className="text-xs sm:col-span-2">
@@ -180,7 +180,7 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
               <div className="sm:col-span-2">
                 <button
                   type="submit"
-                  className="rounded-md bg-brick-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-brick-700"
+                  className="rounded-xl bg-tinta px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
                 >
                   Guardar
                 </button>
@@ -199,10 +199,10 @@ function FilaTramite({ t, propiedadId }: { t: Tramite; propiedadId: string }) {
                 type="submit"
                 title={e.label}
                 aria-label={`Marcar como ${e.label}`}
-                className={`grid h-7 w-7 place-items-center rounded-md border text-sm transition-colors ${
+                className={`grid h-7 w-7 place-items-center rounded-lg border text-sm transition-colors ${
                   t.estado === e.id
                     ? "border-brick-800 bg-brick-800 text-white"
-                    : "border-slate-200 text-slate-400 hover:border-slate-400 dark:border-brick-700"
+                    : "border-linea text-slate-400 hover:border-slate-400"
                 }`}
               >
                 {e.icono}
@@ -234,9 +234,9 @@ export function Expediente({
         return (
           <div
             key={b.id}
-            className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-brick-700 dark:bg-brick-900"
+            className="overflow-hidden rounded-tarjeta bg-white shadow-suave ring-1 ring-black/[0.03]"
           >
-            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-brick-700 dark:bg-brick-800">
+            <div className="flex items-center justify-between border-b border-linea/60 px-6 pt-5 pb-3">
               <h3 className="text-sm font-semibold">
                 <span className="mr-2 text-gold-600">{b.id}</span>
                 {b.nombre}
@@ -248,7 +248,7 @@ export function Expediente({
                 {completos}/{aplicables}
               </span>
             </div>
-            <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+            <ul className="divide-y divide-slate-100">
               {items.map((t) => (
                 <FilaTramite key={t.id} t={t} propiedadId={propiedadId} />
               ))}

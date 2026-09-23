@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { ErrorCampo } from "./ui";
+import { BOTON_PRIMARIO, ErrorCampo } from "./ui";
 
 // Campo de 6 dígitos. Un solo componente para entrar y para activar: la
 // experiencia tiene que ser idéntica o la gente se confunde.
@@ -12,7 +12,7 @@ export function FormaCodigo({ accion, boton }: { accion: Accion; boton: string }
   const [estado, enviar, pendiente] = useActionState(accion, null);
 
   return (
-    <form action={enviar} className="mt-5 space-y-3">
+    <form action={enviar} className="mt-8 space-y-4">
       <input
         name="codigo"
         required
@@ -22,14 +22,10 @@ export function FormaCodigo({ accion, boton }: { accion: Accion; boton: string }
         maxLength={7}
         autoFocus
         placeholder="000000"
-        className="w-full rounded-lg border border-slate-200 px-3 py-3 text-center font-mono text-2xl tracking-[0.4em] dark:border-brick-700 dark:bg-brick-900"
+        className="w-full rounded-2xl border border-slate-200 bg-fondo px-3 py-4 text-center font-mono text-2xl tracking-[0.4em] transition-colors focus:border-brick-600 focus:bg-white focus:ring-4 focus:ring-brick-600/10 focus:outline-none"
       />
       {estado?.error ? <ErrorCampo>{estado.error}</ErrorCampo> : null}
-      <button
-        type="submit"
-        disabled={pendiente}
-        className="w-full rounded-lg bg-brick-800 px-4 py-2.5 font-medium text-white hover:bg-brick-700 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pendiente} className={`${BOTON_PRIMARIO} w-full py-3`}>
         {pendiente ? "Verificando…" : boton}
       </button>
     </form>

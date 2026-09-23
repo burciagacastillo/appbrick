@@ -1,7 +1,9 @@
-import Link from "next/link";
+import { Building2 } from "lucide-react";
+import { db } from "@/lib/db";
 import { listarPropiedades } from "@/lib/queries";
-import { Card, EtapaBadge, Barra, Vacio } from "@/components/ui";
-import { mxn, ETAPAS } from "@/lib/constants";
+import { Card, Vacio, Encabezado } from "@/components/ui";
+import { TarjetaPropiedad } from "@/components/tarjeta-propiedad";
+import { ETAPAS } from "@/lib/constants";
 import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +11,19 @@ export const dynamic = "force-dynamic";
 export default async function Propiedades() {
   await exigirAdmin();
 
-  const propiedades = await listarPropiedades();
+  const [propiedades, fotos] = await Promise.all([
+    listarPropiedades(),
+    // Portada primero; si ninguna está marcada, la primera en orden.
+    db.foto.findMany({
+      orderBy: [{ esPortada: "desc" }, { orden: "asc" }],
+      select: { id: true, propiedadId: true },
+    }),
+  ]);
+
+  const portada = new Map<string, string>();
+  for (const f of fotos) {
+    if (!portada.has(f.propiedadId)) portada.set(f.propiedadId, f.id);
+  }
 
   // Agrupadas por etapa, en el orden del ciclo del negocio.
   const grupos = ETAPAS.map((e) => ({
@@ -18,77 +32,26 @@ export default async function Propiedades() {
   })).filter((g) => g.items.length > 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Propiedades</h1>
-          <p className="text-sm text-slate-500">{propiedades.length} en total</p>
-        </div>
-      </div>
+    <div className="space-y-12">
+      <Encabezado titulo="Propiedades" descripcion={`${propiedades.length} en total`} />
 
       {grupos.length === 0 ? (
         <Card>
-          <Vacio>
-            No hay propiedades cargadas. Corre <code>npm run db:seed</code> para
-            traerlas de tus carpetas.
+          <Vacio icono={<Building2 className="h-6 w-6" strokeWidth={1.5} />} titulo="Sin propiedades">
+            Corre <code>npm run db:seed</code> para traerlas de tus carpetas.
           </Vacio>
         </Card>
       ) : (
         grupos.map((g) => (
-          <section key={g.etapa.id} className="space-y-2">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-sm font-semibold">{g.etapa.label}</h2>
-              <span className="text-xs text-slate-500">{g.etapa.desc}</span>
+          <section key={g.etapa.id} className="space-y-5">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-lg font-semibold tracking-tight">{g.etapa.label}</h2>
+              <span className="text-sm text-tenue">{g.etapa.desc}</span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
               {g.items.map((p) => (
-                <Link key={p.id} href={`/propiedades/${encodeURIComponent(p.id)}`}>
-                  <Card className="h-full px-4 py-3 transition-shadow hover:shadow-md">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate font-medium">{p.nombre}</div>
-                        {p.direccion ? (
-                          <div className="truncate text-xs text-slate-500">
-                            {p.direccion}
-                          </div>
-                        ) : null}
-                      </div>
-                      <EtapaBadge id={p.etapa} />
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="flex-1">
-                        <Barra porcentaje={p.progreso.porcentaje} />
-                      </div>
-                      <span className="shrink-0 text-xs text-slate-500 tabular">
-                        {p.progreso.completos}/{p.progreso.total}
-                      </span>
-                    </div>
-
-                    <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <dt className="text-slate-500">Compra</dt>
-                        <dd className="tabular font-medium">{mxn(p.valorCompra)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Gastado</dt>
-                        <dd className="tabular font-medium">{mxn(p.dinero.gastado)}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-slate-500">Margen est.</dt>
-                        <dd
-                          className={`tabular font-medium ${
-                            p.dinero.margen != null && p.dinero.margen < 0
-                              ? "text-rose-600"
-                              : ""
-                          }`}
-                        >
-                          {mxn(p.dinero.margen)}
-                        </dd>
-                      </div>
-                    </dl>
-                  </Card>
-                </Link>
+                <TarjetaPropiedad key={p.id} p={p} fotoId={portada.get(p.id)} />
               ))}
             </div>
           </section>

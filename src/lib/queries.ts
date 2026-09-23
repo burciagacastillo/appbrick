@@ -246,6 +246,48 @@ export async function totalesDeGastos() {
   };
 }
 
+export type MesDeEgresos = {
+  /** "2026-09" */
+  clave: string;
+  /** Primer día del mes, a medianoche UTC. */
+  inicio: Date;
+  total: number;
+};
+
+/**
+ * Egresos de todo el negocio, mes por mes, de los últimos `meses` (incluido
+ * el actual). Los meses sin gastos salen en cero en vez de desaparecer: un
+ * hueco en la gráfica es información.
+ *
+ * Todo en UTC: las fechas de gasto se capturan como día (sin hora) y se
+ * guardan a medianoche UTC; agrupar en hora local movería los del día 1 al
+ * mes anterior.
+ */
+export async function egresosPorMes(meses = 12, ahora = new Date()): Promise<MesDeEgresos[]> {
+  const inicios: Date[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    inicios.push(new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() - i, 1)));
+  }
+  const clave = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+
+  const gastos = await db.gasto.findMany({
+    where: { fecha: { gte: inicios[0] } },
+    select: { fecha: true, monto: true },
+  });
+
+  const suma = new Map<string, number>();
+  for (const g of gastos) {
+    suma.set(clave(g.fecha), (suma.get(clave(g.fecha)) ?? 0) + g.monto);
+  }
+
+  return inicios.map((inicio) => ({
+    clave: clave(inicio),
+    inicio,
+    total: suma.get(clave(inicio)) ?? 0,
+  }));
+}
+
 /** Números de arriba del tablero. */
 export async function resumenGeneral() {
   const propiedades = await listarPropiedades();

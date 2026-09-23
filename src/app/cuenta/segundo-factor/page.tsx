@@ -26,7 +26,7 @@ export default async function SegundoFactor() {
         </p>
         <p className="mt-4 text-xs text-slate-500">
           ¿Perdiste el celular? Desde tu computadora corre{" "}
-          <code className="rounded bg-slate-100 px-1 dark:bg-brick-800">npm run usuario</code>{" "}
+          <code className="rounded bg-slate-100 px-1">npm run usuario</code>{" "}
           y elige reiniciar el segundo factor.
         </p>
       </main>
@@ -42,7 +42,7 @@ export default async function SegundoFactor() {
 
   return (
     <main className="mx-auto max-w-md px-4 py-10">
-      <div className="grid h-9 w-9 place-items-center rounded-lg bg-gold-500 text-sm font-bold text-brick-900">
+      <div className="grid h-9 w-9 place-items-center rounded-lg bg-brick-800 text-sm font-bold text-gold-400">
         B
       </div>
       <h1 className="mt-5 text-xl font-semibold">Activa tu segundo factor</h1>
@@ -68,13 +68,13 @@ export default async function SegundoFactor() {
           <img
             src={qr}
             alt="Código QR para la app autenticadora"
-            className="mt-3 rounded-lg border border-slate-200 bg-white p-2 dark:border-brick-700"
+            className="mt-3 rounded-xl border border-linea bg-white p-2"
             width={220}
             height={220}
           />
           <details className="mt-2 text-xs text-slate-500">
             <summary className="cursor-pointer">¿No puedes escanear? Tecléalo a mano</summary>
-            <p className="mt-1 break-all font-mono text-sm text-slate-700 dark:text-slate-300">
+            <p className="mt-1 break-all font-mono text-sm text-slate-700">
               {agrupado}
             </p>
           </details>
@@ -88,7 +88,7 @@ export default async function SegundoFactor() {
 
       <p className="mt-6 text-xs text-slate-500">
         Si pierdes el celular, desde tu computadora con{" "}
-        <code className="rounded bg-slate-100 px-1 dark:bg-brick-800">npm run usuario</code>{" "}
+        <code className="rounded bg-slate-100 px-1">npm run usuario</code>{" "}
         puedes reiniciarlo. Nadie más puede hacerlo desde internet.
       </p>
     </main>

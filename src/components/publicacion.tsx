@@ -76,15 +76,15 @@ export function Publicacion({ propiedad: p }: Props) {
   return (
     <div className="space-y-4">
       {/* Fotos */}
-      <div className="rounded-xl border border-slate-200 bg-white dark:border-brick-700 dark:bg-brick-900">
-        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-brick-700">
+      <div className="rounded-tarjeta bg-white shadow-suave ring-1 ring-black/[0.03]">
+        <div className="flex items-center justify-between border-b border-linea px-6 py-4">
           <h2 className="text-sm font-semibold">Fotos</h2>
           <span className="text-xs text-slate-500">
             {p.fotos.length} {p.fotos.length === 1 ? "foto" : "fotos"}
           </span>
         </div>
 
-        <form action={accionFotos} className="px-4 py-3">
+        <form action={accionFotos} className="px-6 py-4">
           <input type="hidden" name="propiedadId" value={p.id} />
           <input
             type="file"
@@ -92,7 +92,7 @@ export function Publicacion({ propiedad: p }: Props) {
             multiple
             accept="image/jpeg,image/png,image/webp,image/heic"
             disabled={subiendo}
-            className="block w-full text-sm file:mr-3 file:rounded-md file:border-0
+            className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0
                        file:bg-brick-800 file:px-3 file:py-2 file:text-sm
                        file:font-medium file:text-white hover:file:bg-brick-700
                        disabled:opacity-50"
@@ -105,17 +105,17 @@ export function Publicacion({ propiedad: p }: Props) {
           </p>
 
           {subiendo ? (
-            <p className="mt-2 text-sm text-brick-700 dark:text-gold-400">
+            <p className="mt-2 text-sm text-brick-700">
               Subiendo fotos…
             </p>
           ) : null}
           {!subiendo && estadoFotos?.ok === true ? (
-            <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
+            <p className="mt-2 text-sm text-emerald-700">
               Se subieron {estadoFotos.cuantas}.
             </p>
           ) : null}
           {!subiendo && estadoFotos?.ok === false ? (
-            <p className="mt-2 text-sm text-rose-700 dark:text-rose-400">
+            <p className="mt-2 text-sm text-rose-700">
               {estadoFotos.error}
             </p>
           ) : null}
@@ -142,7 +142,7 @@ export function Publicacion({ propiedad: p }: Props) {
                       <input type="hidden" name="fotoId" value={f.id} />
                       <button
                         type="submit"
-                        className="w-full rounded border border-slate-200 px-1 py-0.5 text-[11px] hover:bg-slate-50 dark:border-brick-700 dark:hover:bg-brick-800"
+                        className="w-full rounded border border-linea px-1 py-0.5 text-[11px] hover:bg-slate-50"
                       >
                         Portada
                       </button>
@@ -152,7 +152,7 @@ export function Publicacion({ propiedad: p }: Props) {
                     <input type="hidden" name="fotoId" value={f.id} />
                     <button
                       type="submit"
-                      className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-rose-600 hover:bg-rose-50 dark:border-brick-700"
+                      className="rounded border border-linea px-1.5 py-0.5 text-[11px] text-rose-600 hover:bg-rose-50"
                     >
                       Borrar
                     </button>
@@ -167,18 +167,18 @@ export function Publicacion({ propiedad: p }: Props) {
       {/* Ficha */}
       <form
         action={guardarFichaPublica}
-        className="rounded-xl border border-slate-200 bg-white dark:border-brick-700 dark:bg-brick-900"
+        className="rounded-tarjeta bg-white shadow-suave ring-1 ring-black/[0.03]"
       >
         <input type="hidden" name="propiedadId" value={p.id} />
 
-        <div className="border-b border-slate-200 px-4 py-3 dark:border-brick-700">
+        <div className="border-b border-linea px-6 py-4">
           <h2 className="text-sm font-semibold">Lo que ve el público</h2>
           <p className="mt-0.5 text-xs text-slate-500">
             Nada de esto toca tus costos ni tu margen. Son campos aparte.
           </p>
         </div>
 
-        <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+        <div className="grid gap-3 px-6 py-5 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Interruptor
               name="publicada"
@@ -299,7 +299,7 @@ export function Publicacion({ propiedad: p }: Props) {
           <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
             <button
               type="submit"
-              className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700"
+              className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               Guardar
             </button>
@@ -308,7 +308,7 @@ export function Publicacion({ propiedad: p }: Props) {
                 href={`/casas/${p.slugPublico}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm text-brick-700 hover:underline dark:text-gold-400"
+                className="text-sm text-brick-700 hover:underline"
               >
                 Ver como la ve el público ↗
               </a>

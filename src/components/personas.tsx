@@ -64,7 +64,7 @@ function Password({
             type="submit"
             disabled={pendiente}
             onClick={() => setVisible(true)}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-60 dark:border-brick-700 dark:hover:bg-brick-800"
+            className="rounded-xl border border-linea px-2.5 py-1 text-xs hover:bg-slate-50 disabled:opacity-60"
           >
             {pendiente ? "Descifrando…" : "Ver contraseña"}
           </button>
@@ -75,7 +75,7 @@ function Password({
           <input type="hidden" name="propiedadId" value={propiedadId} />
           <button
             type="submit"
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50 dark:border-brick-700"
+            className="rounded-xl border border-linea px-2.5 py-1 text-xs text-rose-600 hover:bg-rose-50"
           >
             Borrarla
           </button>
@@ -83,10 +83,10 @@ function Password({
       </div>
 
       {visible && estado?.ok === true ? (
-        <div className="rounded-lg bg-amber-50 p-3 dark:bg-amber-500/10">
+        <div className="rounded-lg bg-amber-50 p-3">
           <p className="font-mono text-sm break-all">{estado.password}</p>
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <span className="text-xs text-amber-800 dark:text-amber-300">
+            <span className="text-xs text-amber-800">
               Esta consulta quedó registrada en la bitácora.
             </span>
             <button
@@ -141,7 +141,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
         }
       />
 
-      <form action={accion} className="grid gap-3 px-4 py-4 sm:grid-cols-3">
+      <form action={accion} className="grid gap-3 px-6 py-5 sm:grid-cols-3">
         <input type="hidden" name="personaId" value={p.id} />
         <input type="hidden" name="propiedadId" value={propiedadId} />
 
@@ -217,7 +217,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
         {/* Lo del crédito: solo tiene sentido para el comprador */}
         {esComprador ? (
           <>
-            <div className="sm:col-span-3 mt-2 border-t border-slate-100 pt-3 dark:border-brick-700">
+            <div className="sm:col-span-3 mt-2 border-t border-linea/60 pt-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Crédito Infonavit
               </h3>
@@ -259,7 +259,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
               />
             </Campo>
 
-            <div className="sm:col-span-3 mt-2 border-t border-slate-100 pt-3 dark:border-brick-700">
+            <div className="sm:col-span-3 mt-2 border-t border-linea/60 pt-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Empleo
               </h3>
@@ -304,7 +304,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
           <button
             type="submit"
             disabled={pendiente}
-            className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
+            className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {pendiente ? "Guardando…" : "Guardar"}
           </button>
@@ -314,7 +314,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
       </form>
 
       {esComprador ? (
-        <div className="border-t border-slate-100 px-4 py-4 dark:border-brick-700">
+        <div className="border-t border-linea/60 px-6 py-5">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Contraseña guardada
           </h3>
@@ -353,7 +353,7 @@ function Referencias({
   return (
     <form
       action={accion}
-      className="border-t border-slate-100 px-4 py-4 dark:border-brick-700"
+      className="border-t border-linea/60 px-6 py-5"
     >
       <input type="hidden" name="personaId" value={persona.id} />
       <input type="hidden" name="propiedadId" value={propiedadId} />
@@ -391,7 +391,7 @@ function Referencias({
         <button
           type="submit"
           disabled={pendiente}
-          className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
+          className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
         >
           {pendiente ? "Guardando…" : "Guardar referencias"}
         </button>
@@ -413,7 +413,7 @@ function Agregar({ propiedadId }: { propiedadId: string }) {
   return (
     <Card>
       <CardHeader titulo="Agregar una persona" />
-      <form action={accion} className="grid gap-2 px-4 py-3 sm:grid-cols-4">
+      <form action={accion} className="grid gap-3 px-6 py-5 sm:grid-cols-4">
         <input type="hidden" name="propiedadId" value={propiedadId} />
         <Campo etiqueta="Nombre completo" className="sm:col-span-2">
           <input name="nombre" required placeholder="Edgar Vázquez" className={CLASE_CAMPO} />
@@ -434,7 +434,7 @@ function Agregar({ propiedadId }: { propiedadId: string }) {
           <button
             type="submit"
             disabled={pendiente}
-            className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
+            className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {pendiente ? "Agregando…" : "Agregar"}
           </button>
@@ -456,7 +456,7 @@ function Operacion({ p }: { p: PropiedadDetalle }) {
   return (
     <Card>
       <CardHeader titulo="Datos del trato" />
-      <form action={accion} className="grid gap-3 px-4 py-4 sm:grid-cols-3">
+      <form action={accion} className="grid gap-3 px-6 py-5 sm:grid-cols-3">
         <input type="hidden" name="propiedadId" value={p.id} />
 
         <Campo etiqueta="Notaría">
@@ -518,7 +518,7 @@ function Operacion({ p }: { p: PropiedadDetalle }) {
           <button
             type="submit"
             disabled={pendiente}
-            className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
+            className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {pendiente ? "Guardando…" : "Guardar"}
           </button>
@@ -558,8 +558,8 @@ export function Personas({ propiedad }: { propiedad: PropiedadDetalle }) {
   return (
     <div className="space-y-4">
       {avisos.length > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/40 dark:bg-amber-500/10">
-          <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-200">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <ul className="space-y-1 text-sm text-amber-800">
             {avisos.map((a) => (
               <li key={a}>· {a}</li>
             ))}

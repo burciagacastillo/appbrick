@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * AppBrick es SOLO modo claro. Antes el fondo seguía al modo oscuro de
+ * Windows mientras las tarjetas seguían blancas: de ahí el look "oscuro y
+ * saturado". Con esto, las clases `dark:` que queden nunca se activan.
+ */
+@custom-variant dark (&:where(.modo-oscuro-desactivado, .modo-oscuro-desactivado *));
+
 /* Identidad Grupo Brick: navy 1F3864 y gold, los mismos de tus decks. */
 @theme {
   --color-brick-950: #0e1b33;
@@ -14,26 +21,61 @@
   --color-gold-500: #c9a227;
   --color-gold-400: #e0bd4e;
   --color-gold-100: #f7edcd;
+
+  /* Tinta y superficies: negro profundo para títulos, slate para lo secundario. */
+  --color-tinta: #0f172a;
+  --color-tenue: #64748b;
+  --color-linea: #e8eaee;
+  --color-fondo: #f3f4f6;
+
+  /* Acento vibrante: SOLO para resaltar un dato (la barra del mes en el gráfico).
+     Los botones y la identidad siguen en navy brick. */
+  --color-acento: #2563eb;
+
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", system-ui, sans-serif;
+
+  --radius-tarjeta: 20px;
+
+  /* Las tarjetas no llevan borde: las separa del fondo una sombra difuminada
+     y un filo al 3% que casi no se ve pero evita que se "derritan". */
+  --shadow-suave: 0 10px 25px -5px rgb(0 0 0 / 0.03), 0 1px 2px rgb(0 0 0 / 0.03);
+  --shadow-flotante: 0 20px 40px -12px rgb(15 23 42 / 0.14), 0 2px 6px rgb(15 23 42 / 0.05);
 }
 
 :root {
-  --background: #f6f7f9;
-  --foreground: #16294d;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0e1b33;
-    --foreground: #e8edf7;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-fondo);
+  color: var(--color-tinta);
+  font-feature-settings: "cv11", "ss01";
 }
 
 /* Tipografía tabular para columnas de dinero: los pesos alinean. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Foco visible y consistente para quien navega con teclado. */
+:focus-visible {
+  outline: 2px solid var(--color-brick-600);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* El menú de tres puntos usa <details>: sin JavaScript. Se quita el triángulo. */
+summary::-webkit-details-marker {
+  display: none;
+}
+summary {
+  list-style: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }

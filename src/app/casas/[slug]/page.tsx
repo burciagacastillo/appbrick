@@ -50,38 +50,38 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
 
   return (
     <div className="min-h-screen">
-      <header className="bg-brick-800 text-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-4">
-          <Link href="/casas" className="flex items-center gap-2 font-semibold">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gold-500 text-sm font-bold text-brick-900">
+      <header className="sticky top-0 z-20 border-b border-linea/60 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-4 px-5">
+          <Link href="/casas" className="flex items-center gap-2.5 font-semibold tracking-tight">
+            <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-brick-800 text-sm font-bold text-gold-400">
               B
             </span>
             Grupo Brick
           </Link>
-          <Link href="/casas" className="text-sm text-brick-100 hover:text-white">
+          <Link href="/casas" className="text-sm font-medium text-tenue transition-colors hover:text-tinta">
             Ver todas
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-6">
+      <main className="mx-auto max-w-4xl px-5 py-8">
         {/* Fotos */}
         {f.fotos.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {f.fotos.map((foto, i) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={foto.url}
                 src={foto.url}
                 alt={foto.alt}
-                className={`w-full rounded-xl object-cover ${
+                className={`w-full rounded-2xl object-cover ${
                   i === 0 ? "aspect-[16/10] sm:col-span-2" : "aspect-[4/3]"
                 }`}
               />
             ))}
           </div>
         ) : (
-          <div className="grid aspect-[16/9] place-items-center rounded-xl bg-slate-100 text-sm text-slate-400 dark:bg-brick-800">
+          <div className="grid aspect-[16/9] place-items-center rounded-2xl bg-slate-100 text-sm text-slate-400">
             Sin fotos todavía
           </div>
         )}
@@ -89,9 +89,9 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
         <div className="mt-6 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold tracking-tight">{f.titulo}</h1>
+              <h1 className="text-[28px] leading-tight font-bold tracking-tight">{f.titulo}</h1>
               {f.vendida ? (
-                <span className="rounded-full bg-brick-800 px-3 py-1 text-xs font-semibold text-white">
+                <span className="rounded-full bg-tinta px-3 py-1 text-xs font-semibold text-white">
                   Vendida
                 </span>
               ) : null}
@@ -102,7 +102,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
           </div>
 
           <div className="text-right">
-            <p className="text-2xl font-semibold tabular">
+            <p className="text-[28px] leading-tight font-bold tracking-tight tabular">
               {f.precio != null
                 ? mxn(f.precio)
                 : f.vendida
@@ -110,7 +110,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
                   : "Consultar precio"}
             </p>
             {!f.vendida && (f.aceptaInfonavit || f.aceptaBancario) ? (
-              <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <p className="text-sm font-medium text-emerald-700">
                 Acepta{" "}
                 {[
                   f.aceptaInfonavit ? "Infonavit" : null,
@@ -128,7 +128,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
             {datos.map((d) => (
               <div
                 key={d.etiqueta}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-brick-700 dark:bg-brick-900"
+                className="rounded-2xl bg-white px-4 py-3 shadow-suave ring-1 ring-black/[0.03]"
               >
                 <dt className="text-xs text-slate-500">{d.etiqueta}</dt>
                 <dd className="mt-0.5 font-semibold tabular">{d.valor}</dd>
@@ -138,13 +138,13 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
         ) : null}
 
         {f.descripcion ? (
-          <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 dark:border-brick-700 dark:bg-brick-900">
+          <div className="mt-6 rounded-tarjeta bg-white shadow-suave ring-1 ring-black/[0.03] p-6">
             <p className="whitespace-pre-wrap leading-relaxed">{f.descripcion}</p>
           </div>
         ) : null}
 
         {/* El botón que pediste: abre WhatsApp con la casa ya mencionada */}
-        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 text-center dark:border-brick-700 dark:bg-brick-900">
+        <div className="mt-6 rounded-tarjeta bg-white shadow-suave ring-1 ring-black/[0.03] p-6 text-center">
           {f.vendida ? (
             <>
               <p className="font-medium">Esta casa ya se vendió</p>
@@ -157,7 +157,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
                 )}`}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-block rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white hover:bg-emerald-700"
+                className="mt-4 inline-flex items-center rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-emerald-700"
               >
                 Ver qué más tienen
               </a>
@@ -173,7 +173,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
                 href={linkWhatsApp(f)}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-block rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white hover:bg-emerald-700"
+                className="mt-4 inline-flex items-center rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-emerald-700"
               >
                 Preguntar por WhatsApp
               </a>
@@ -183,7 +183,7 @@ export default async function FichaCasa({ params }: PageProps<"/casas/[slug]">) 
         </div>
       </main>
 
-      <footer className="border-t border-slate-200 py-8 text-center text-xs text-slate-500 dark:border-brick-700">
+      <footer className="border-t border-linea py-8 text-center text-xs text-slate-500">
         Grupo Brick · Chihuahua, Chih.
       </footer>
     </div>

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LogOut, Search, ShieldAlert, ShieldCheck } from "lucide-react";
 import { exigirSesion } from "@/lib/permisos";
 import { salir } from "@/acciones/sesion";
+import { MenuCrear, Navegacion } from "@/components/navegacion";
 
 // Cara interna: admin y ayudante. El menú vive aquí y solo aquí, para que ni
 // el invitado ni el visitante del catálogo público lo vean nunca.
@@ -16,16 +18,16 @@ export const metadata: Metadata = {
   description: "Trámites, avances y costos de Grupo Brick",
 };
 
-const NAV_ADMIN = [
-  { href: "/", label: "Tablero" },
-  { href: "/propiedades", label: "Propiedades" },
-  { href: "/revisar", label: "Revisar" },
-  { href: "/recordatorios", label: "Recordatorios" },
-  { href: "/gastos", label: "Gastos" },
-  { href: "/equipo", label: "Equipo" },
-];
-
-const NAV_AYUDANTE = [{ href: "/ayudante", label: "Documentos" }];
+function Logo({ href }: { href: string }) {
+  return (
+    <Link href={href} className="flex shrink-0 items-center gap-2.5">
+      <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-brick-800 text-sm font-bold text-gold-400">
+        B
+      </span>
+      <span className="text-[15px] font-semibold tracking-tight">AppBrick</span>
+    </Link>
+  );
+}
 
 export default async function LayoutInterno({
   children,
@@ -33,67 +35,115 @@ export default async function LayoutInterno({
   children: React.ReactNode;
 }) {
   const usuario = await exigirSesion();
-  const nav = usuario.esAdmin ? NAV_ADMIN : NAV_AYUDANTE;
+  const inicio = usuario.esAdmin ? "/" : "/ayudante";
+  const inicial = usuario.nombre.trim().charAt(0).toUpperCase() || "?";
+  // El ayudante busca dentro de SUS documentos; el admin, en todo.
+  const destinoBusqueda = usuario.esAdmin ? "/buscar" : "/ayudante";
 
   return (
-    <>
-      <header className="bg-brick-800 text-white sticky top-0 z-20 shadow-sm">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="flex h-14 items-center gap-4">
-            <Link
-              href={usuario.esAdmin ? "/" : "/ayudante"}
-              className="flex items-center gap-2 font-semibold tracking-tight"
+    <div className="flex min-h-screen">
+      {/* Menú lateral: solo en pantalla ancha. */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-linea/60 bg-white px-5 py-6 md:flex">
+        <Logo href={inicio} />
+
+        <div className="mt-10 mb-3 px-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
+          Menú
+        </div>
+        <Navegacion esAdmin={usuario.esAdmin} modo="lateral" />
+
+        <div className="mt-auto space-y-4">
+          <Link
+            href="/cuenta/segundo-factor"
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors ${
+              usuario.totpActivo
+                ? "text-emerald-700 hover:bg-emerald-50"
+                : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+            }`}
+          >
+            {usuario.totpActivo ? (
+              <ShieldCheck className="h-4 w-4" strokeWidth={1.75} />
+            ) : (
+              <ShieldAlert className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            {usuario.totpActivo ? "Segundo factor activo" : "Activa tu segundo factor"}
+          </Link>
+          <p className="px-3 text-[11px] text-slate-400">Grupo Brick · Chihuahua</p>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 border-b border-linea/60 bg-white/80 backdrop-blur-md">
+          <div className="flex h-16 items-center gap-3 px-4 sm:px-8">
+            <div className="md:hidden">
+              <Logo href={inicio} />
+            </div>
+
+            <form
+              action={destinoBusqueda}
+              role="search"
+              className="mx-auto hidden w-full max-w-md sm:block"
             >
-              <span className="grid h-7 w-7 place-items-center rounded bg-gold-500 text-brick-900 text-sm font-bold">
-                B
-              </span>
-              <span className="hidden sm:inline">AppBrick</span>
-            </Link>
+              <label className="relative block">
+                <span className="sr-only">Buscar</span>
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  strokeWidth={1.75}
+                />
+                <input
+                  type="search"
+                  name="q"
+                  placeholder={
+                    usuario.esAdmin
+                      ? "Buscar propiedad, persona o trámite…"
+                      : "Buscar documento…"
+                  }
+                  className="w-full rounded-xl border-0 bg-slate-100/80 py-2.5 pr-4 pl-10 text-sm text-tinta placeholder:text-slate-400 transition-all focus:bg-white focus:ring-4 focus:ring-brick-600/10 focus:outline-none"
+                />
+              </label>
+            </form>
 
-            <nav className="flex flex-1 items-center gap-1 overflow-x-auto text-sm">
-              {nav.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className="whitespace-nowrap rounded-md px-3 py-1.5 text-brick-100 hover:bg-brick-700 hover:text-white transition-colors"
-                >
-                  {n.label}
-                </Link>
-              ))}
-            </nav>
+            <div className="ml-auto flex shrink-0 items-center gap-2 sm:ml-0">
+              {usuario.esAdmin ? <MenuCrear /> : null}
 
-            <div className="flex shrink-0 items-center gap-3 text-sm">
-              <Link
-                href="/cuenta/segundo-factor"
-                className="hidden rounded-md px-2 py-1 text-brick-100 hover:bg-brick-700 hover:text-white sm:inline"
-                title={usuario.totpActivo ? "Segundo factor activo" : "Activa tu segundo factor"}
+              <div
+                className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-brick-700 to-brick-900 text-sm font-semibold text-white"
+                title={`${usuario.nombre}${usuario.esAdmin ? "" : " · ayudante"}`}
               >
-                {usuario.totpActivo ? "🔒" : "🔓 Activar 2FA"}
-              </Link>
-              <span className="hidden text-brick-100 sm:inline">
-                {usuario.nombre}
-                {usuario.esAdmin ? null : (
-                  <span className="ml-1 text-xs text-brick-100/70">(ayudante)</span>
-                )}
-              </span>
+                {inicial}
+              </div>
+
               <form action={salir}>
                 <button
                   type="submit"
-                  className="rounded-md px-2 py-1 text-brick-100 hover:bg-brick-700 hover:text-white"
+                  className="grid h-9 w-9 place-items-center rounded-xl text-tenue transition-colors hover:bg-slate-100 hover:text-tinta"
+                  title="Salir"
+                  aria-label="Salir"
                 >
-                  Salir
+                  <LogOut className="h-[18px] w-[18px]" strokeWidth={1.75} />
                 </button>
               </form>
             </div>
           </div>
-        </div>
-      </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+          {/* En celular: buscador y pestañas debajo, deslizables. */}
+          <div className="space-y-2 px-4 pb-3 md:hidden">
+            <form action={destinoBusqueda} role="search" className="sm:hidden">
+              <input
+                type="search"
+                name="q"
+                placeholder="Buscar…"
+                aria-label="Buscar"
+                className="w-full rounded-xl border-0 bg-slate-100/80 px-4 py-2 text-sm placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-brick-600/10 focus:outline-none"
+              />
+            </form>
+            <Navegacion esAdmin={usuario.esAdmin} modo="horizontal" />
+          </div>
+        </header>
 
-      <footer className="mx-auto w-full max-w-6xl px-4 py-6 text-xs text-slate-500">
-        Grupo Brick · Chihuahua
-      </footer>
-    </>
+        <main className="flex-1 px-4 py-8 sm:px-8 sm:py-10">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
+      </div>
+    </div>
   );
 }

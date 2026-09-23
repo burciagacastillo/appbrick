@@ -1,6 +1,16 @@
+import Link from "next/link";
+import { Download, Eye, FileText, FolderOpen } from "lucide-react";
 import { db } from "@/lib/db";
 import { exigirSesion, propiedadesVisibles } from "@/lib/permisos";
-import { Card, CardHeader, Badge, Vacio } from "@/components/ui";
+import {
+  Card,
+  CardHeader,
+  Badge,
+  Vacio,
+  Encabezado,
+  BOTON_PRIMARIO,
+  BOTON_SECUNDARIO,
+} from "@/components/ui";
 import { fechaCorta } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +37,10 @@ export default async function PantallaAyudante({
 
   if (visibles !== "todas" && visibles.length === 0) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-xl font-semibold tracking-tight">Documentos</h1>
+      <div className="space-y-8">
+        <Encabezado titulo="Documentos" />
         <Card>
-          <Vacio>
+          <Vacio icono={<FolderOpen className="h-6 w-6" strokeWidth={1.5} />} titulo="Sin propiedades asignadas">
             Todavía no tienes propiedades asignadas. Pídele a Erick que te dé
             acceso a las que estés apoyando.
           </Vacio>
@@ -74,32 +84,26 @@ export default async function PantallaAyudante({
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Documentos</h1>
-        <p className="text-sm text-slate-500">
-          {documentos.length}{" "}
-          {documentos.length === 1 ? "documento disponible" : "documentos disponibles"}
-          {visibles === "todas"
-            ? " · estás viendo todas las propiedades"
-            : ` en ${visibles.length} ${visibles.length === 1 ? "propiedad" : "propiedades"}`}
-        </p>
-      </div>
-
-      <form method="get" className="flex gap-2">
-        <input
-          name="q"
-          defaultValue={busqueda}
-          placeholder="Buscar: INE, CURP, Edgar, Turmalina…"
-          className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-brick-700 dark:bg-brick-900"
-        />
-        <button
-          type="submit"
-          className="rounded-lg bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700"
-        >
-          Buscar
-        </button>
-      </form>
+    <div className="space-y-8">
+      <Encabezado
+        titulo={busqueda ? `“${busqueda}”` : "Documentos"}
+        descripcion={
+          <>
+            {documentos.length}{" "}
+            {documentos.length === 1 ? "documento" : "documentos"}
+            {visibles === "todas"
+              ? " · estás viendo todas las propiedades"
+              : ` en ${visibles.length} ${visibles.length === 1 ? "propiedad" : "propiedades"}`}
+          </>
+        }
+        acciones={
+          busqueda ? (
+            <Link href="/ayudante" className={BOTON_SECUNDARIO}>
+              Quitar búsqueda
+            </Link>
+          ) : null
+        }
+      />
 
       {documentos.length === 0 ? (
         <Card>
@@ -120,12 +124,16 @@ export default async function PantallaAyudante({
                 </span>
               }
             />
-            <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+            <ul className="px-3 pb-3">
               {grupo.docs.map((d) => (
                 <li
                   key={d.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-slate-50"
                 >
+                  <div className="flex min-w-0 items-center gap-3.5">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-tinta">
+                    <FileText className="h-[18px] w-[18px]" strokeWidth={1.6} />
+                  </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       {d.tramite ? (
@@ -148,20 +156,20 @@ export default async function PantallaAyudante({
                       {Math.round(d.tamanoBytes / 1024)} KB
                     </p>
                   </div>
+                  </div>
 
                   <div className="flex shrink-0 gap-2">
                     <a
                       href={`/api/documento/${d.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-md border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-brick-700 dark:hover:bg-brick-800"
+                      className={BOTON_SECUNDARIO}
                     >
+                      <Eye className="h-4 w-4" strokeWidth={1.75} />
                       Abrir
                     </a>
-                    <a
-                      href={`/api/documento/${d.id}?descargar=1`}
-                      className="rounded-md bg-brick-800 px-3 py-1.5 text-sm font-medium text-white hover:bg-brick-700"
-                    >
+                    <a href={`/api/documento/${d.id}?descargar=1`} className={BOTON_PRIMARIO}>
+                      <Download className="h-4 w-4" strokeWidth={1.75} />
                       Descargar
                     </a>
                   </div>

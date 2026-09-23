@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
-import { Card, CardHeader, Badge, Vacio } from "@/components/ui";
+import { Check, Eye, FileText, Inbox } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  Badge,
+  Vacio,
+  Encabezado,
+  BOTON_EXITO,
+  BOTON_SECUNDARIO,
+} from "@/components/ui";
 import { fechaCorta } from "@/lib/constants";
 import { aprobarDocumento, corregirFecha } from "@/acciones/documentos";
 import { FormaRechazo } from "@/components/formularios";
@@ -59,9 +68,13 @@ function Documento({ d }: { d: DocPendiente }) {
     "desconocido";
 
   return (
-    <li className="px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+    <li className="px-6 py-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
+            <FileText className="h-[18px] w-[18px]" strokeWidth={1.6} />
+          </span>
+          <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {d.tramite ? (
               <span className="text-xs font-semibold text-slate-400 tabular">
@@ -76,7 +89,7 @@ function Documento({ d }: { d: DocPendiente }) {
           <p className="mt-0.5 text-xs text-slate-500">
             <Link
               href={`/propiedades/${encodeURIComponent(d.propiedadId)}`}
-              className="font-medium text-brick-700 hover:underline dark:text-gold-400"
+              className="font-medium text-brick-700 hover:underline"
             >
               {d.propiedad.nombre}
             </Link>
@@ -87,21 +100,23 @@ function Documento({ d }: { d: DocPendiente }) {
           <p className="mt-1 truncate font-mono text-xs text-slate-400">
             {d.nombreArchivo}
           </p>
+          </div>
         </div>
 
         <a
           href={`/api/documento/${d.id}`}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-brick-700 dark:hover:bg-brick-800"
+          className={`shrink-0 ${BOTON_SECUNDARIO}`}
         >
-          Ver documento ↗
+          <Eye className="h-4 w-4" strokeWidth={1.75} />
+          Ver documento
         </a>
       </div>
 
       {/* Fecha real del documento: de aquí sale la vigencia de los recibos */}
       {d.tramite?.catalogo.vigenciaDias ? (
-        <form action={corregirFecha} className="mt-3 flex flex-wrap items-end gap-2">
+        <form action={corregirFecha} className="mt-4 flex flex-wrap items-end gap-2 sm:pl-[54px]">
           <input type="hidden" name="documentoId" value={d.id} />
           <label className="text-xs">
             <span className="text-slate-500">Fecha del documento</span>
@@ -111,12 +126,12 @@ function Documento({ d }: { d: DocPendiente }) {
               defaultValue={
                 d.fechaDocumento ? d.fechaDocumento.toISOString().slice(0, 10) : ""
               }
-              className="mt-0.5 block rounded-md border border-slate-200 px-2 py-1.5 text-sm dark:border-brick-700 dark:bg-brick-900"
+              className="mt-0.5 block rounded-xl border border-linea px-2 py-1.5 text-sm"
             />
           </label>
           <button
             type="submit"
-            className="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs hover:bg-slate-50 dark:border-brick-700 dark:hover:bg-brick-800"
+            className="rounded-xl border border-linea px-2.5 py-1.5 text-xs hover:bg-slate-50"
           >
             Guardar fecha
           </button>
@@ -126,14 +141,12 @@ function Documento({ d }: { d: DocPendiente }) {
         </form>
       ) : null}
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-start gap-2 sm:pl-[54px]">
         <form action={aprobarDocumento}>
           <input type="hidden" name="documentoId" value={d.id} />
-          <button
-            type="submit"
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-          >
-            ✓ Aprobar
+          <button type="submit" className={BOTON_EXITO}>
+            <Check className="h-4 w-4" strokeWidth={2} />
+            Aprobar
           </button>
         </form>
 
@@ -154,26 +167,29 @@ export default async function Revisar() {
   const hoy = new Date();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Revisar</h1>
-        <p className="text-sm text-slate-500">
-          {docs.length === 0
-            ? "Nada esperando revisión."
+    <div className="space-y-8">
+      <Encabezado
+        titulo="Revisar"
+        descripcion={
+          docs.length === 0
+            ? "Nada esperando revisión"
             : `${docs.length} ${
                 docs.length === 1 ? "documento espera" : "documentos esperan"
-              } tu visto bueno`}
-        </p>
-      </div>
+              } tu visto bueno`
+        }
+      />
 
       <Card>
         <CardHeader titulo="Esperando revisión" />
         {docs.length === 0 ? (
-          <Vacio>
-            Todo al corriente. Cuando un comprador suba algo, aparece aquí.
+          <Vacio
+            icono={<Inbox className="h-6 w-6" strokeWidth={1.5} />}
+            titulo="Todo al corriente"
+          >
+            Cuando un comprador suba un documento, aparecerá aquí.
           </Vacio>
         ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+          <ul className="divide-y divide-slate-100">
             {docs.map((d) => (
               <Documento key={d.id} d={d} />
             ))}
@@ -187,7 +203,7 @@ export default async function Revisar() {
             titulo="Vencidos o por vencer"
             extra={<span className="text-xs text-slate-500">Infonavit los rebota</span>}
           />
-          <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+          <ul className="divide-y divide-slate-100">
             {porCaducar.map((d) => {
               const vence = d.vigenciaHasta as Date;
               const vencido = vence < hoy;
@@ -203,7 +219,7 @@ export default async function Revisar() {
                     <p className="text-xs text-slate-500">
                       <Link
                         href={`/propiedades/${encodeURIComponent(d.propiedadId)}`}
-                        className="text-brick-700 hover:underline dark:text-gold-400"
+                        className="text-brick-700 hover:underline"
                       >
                         {d.propiedad.nombre}
                       </Link>

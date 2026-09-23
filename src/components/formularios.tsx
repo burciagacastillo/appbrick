@@ -4,7 +4,7 @@ import { useActionState, useRef, useEffect } from "react";
 import { agregarGasto, type ResultadoGasto } from "@/acciones/propiedades";
 import { rechazarDocumento, type ResultadoRechazo } from "@/acciones/documentos";
 import { invitarPersona, type ResultadoInvitar } from "@/acciones/equipo";
-import { CLASE_CAMPO, Campo, ErrorCampo } from "./ui";
+import { BOTON_PRIMARIO, CLASE_CAMPO, Campo, ErrorCampo } from "./ui";
 import {
   CATEGORIAS_GASTO,
   GRUPOS_GASTO,
@@ -20,7 +20,17 @@ import {
 
 // ---------------------------------------------------------------------------
 
-export function FormaGasto({ propiedadId }: { propiedadId: string }) {
+/**
+ * Captura de un gasto. Dentro de una propiedad recibe `propiedadId`; en la
+ * pantalla global de Gastos recibe `propiedades` y pinta un selector.
+ */
+export function FormaGasto({
+  propiedadId,
+  propiedades,
+}: {
+  propiedadId?: string;
+  propiedades?: { id: string; nombre: string }[];
+}) {
   const [estado, accion, pendiente] = useActionState<ResultadoGasto | null, FormData>(
     agregarGasto,
     null
@@ -35,8 +45,20 @@ export function FormaGasto({ propiedadId }: { propiedadId: string }) {
   const hoy = new Date().toISOString().slice(0, 10);
 
   return (
-    <form ref={forma} action={accion} className="grid gap-2 px-4 py-3 sm:grid-cols-6">
-      <input type="hidden" name="propiedadId" value={propiedadId} />
+    <form ref={forma} action={accion} className="grid gap-3 px-6 pt-1 pb-6 sm:grid-cols-6">
+      {propiedadId ? (
+        <input type="hidden" name="propiedadId" value={propiedadId} />
+      ) : (
+        <Campo etiqueta="Propiedad" className="sm:col-span-6">
+          <select name="propiedadId" required className={CLASE_CAMPO}>
+            {(propiedades ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+        </Campo>
+      )}
 
       <Campo etiqueta="Fecha" className="sm:col-span-1">
         <input type="date" name="fecha" defaultValue={hoy} className={CLASE_CAMPO} />
@@ -91,11 +113,7 @@ export function FormaGasto({ propiedadId }: { propiedadId: string }) {
       </Campo>
 
       <div className="flex items-end sm:col-span-4">
-        <button
-          type="submit"
-          disabled={pendiente}
-          className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
-        >
+        <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
           {pendiente ? "Guardando…" : "Agregar gasto"}
         </button>
       </div>
@@ -127,15 +145,12 @@ export function FormaRechazo({
 
   return (
     <details>
-      <summary className="cursor-pointer list-none rounded-md border border-rose-200 px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50 dark:border-rose-500/40 dark:text-rose-300 dark:hover:bg-rose-500/10">
-        ✗ Rechazar
+      <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-rose-600 ring-1 ring-inset ring-rose-200 transition-colors hover:bg-rose-50">
+        Rechazar
       </summary>
-      <form
-        action={accion}
-        className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-brick-700 dark:bg-brick-800"
-      >
+      <form action={accion} className="mt-3 rounded-2xl bg-fondo p-4">
         <input type="hidden" name="documentoId" value={documentoId} />
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-tenue">
           Esto es lo que va a leer {quien} en su portal.
         </p>
         <input
@@ -153,7 +168,7 @@ export function FormaRechazo({
         <button
           type="submit"
           disabled={pendiente}
-          className="mt-2 rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-60"
+          className="mt-3 inline-flex items-center rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60"
         >
           {pendiente ? "Avisando…" : "Rechazar y avisarle"}
         </button>
@@ -181,7 +196,7 @@ export function FormaInvitar({
   }, [estado]);
 
   return (
-    <form ref={forma} action={accion} className="grid gap-2 px-4 py-3 sm:grid-cols-5">
+    <form ref={forma} action={accion} className="grid gap-3 px-6 pt-1 pb-6 sm:grid-cols-5">
       <Campo etiqueta="Propiedad" className="sm:col-span-2">
         <select name="propiedadId" className={CLASE_CAMPO} required>
           {propiedades.map((p) => (
@@ -207,15 +222,11 @@ export function FormaInvitar({
         <input name="telefono" placeholder="614 123 4567" className={CLASE_CAMPO} />
       </Campo>
 
-      <div className="sm:col-span-5">
-        <button
-          type="submit"
-          disabled={pendiente}
-          className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700 disabled:opacity-60"
-        >
+      <div className="pt-1 sm:col-span-5">
+        <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
           {pendiente ? "Generando…" : "Generar link"}
         </button>
-        <span className="ml-3 text-xs text-slate-500">
+        <span className="ml-3 text-xs text-tenue">
           Si ya tenía uno, el anterior deja de funcionar.
         </span>
         {estado?.ok === false ? <ErrorCampo>{estado.error}</ErrorCampo> : null}

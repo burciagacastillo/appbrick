@@ -1,6 +1,15 @@
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
-import { Card, CardHeader, Badge, Vacio, CLASE_CAMPO } from "@/components/ui";
+import { Check, X } from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  Badge,
+  Vacio,
+  CLASE_CAMPO,
+  Encabezado,
+  BOTON_PRIMARIO,
+} from "@/components/ui";
 import { fechaCorta } from "@/lib/constants";
 import { darAccesoAyudante, quitarAccesoAyudante } from "@/acciones/equipo";
 
@@ -34,21 +43,52 @@ export default async function Equipo() {
 
   
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Equipo</h1>
-        <p className="text-sm text-slate-500">
-          {ayudantes.length === 0
+    <div className="space-y-8">
+      <Encabezado
+        titulo="Equipo"
+        descripcion={
+          ayudantes.length === 0
             ? "Todavía no hay ayudantes dados de alta"
-            : `${ayudantes.length} ${ayudantes.length === 1 ? "ayudante" : "ayudantes"}`}
-        </p>
-      </div>
+            : `${ayudantes.length} ${ayudantes.length === 1 ? "ayudante" : "ayudantes"}`
+        }
+      />
+
+      {/* Lo que un ayudante ve y lo que no: la regla, a la vista. */}
+      <Card className="p-6">
+        <h2 className="text-[15px] font-semibold tracking-tight">Qué ve un ayudante</h2>
+        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <ul className="space-y-2.5 text-sm">
+            {[
+              "Los documentos de las propiedades que le asignes",
+              "Puede abrirlos y descargarlos",
+              "Cada vista y descarga queda en la bitácora",
+            ].map((t) => (
+              <li key={t} className="flex gap-2.5">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" strokeWidth={2} />
+                {t}
+              </li>
+            ))}
+          </ul>
+          <ul className="space-y-2.5 text-sm text-tenue">
+            {[
+              "Gastos, compras, márgenes ni comisiones",
+              "Precios internos ni la cuenta entre socios",
+              "Contraseñas de Infonavit ni datos personales",
+            ].map((t) => (
+              <li key={t} className="flex gap-2.5">
+                <X className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" strokeWidth={2} />
+                {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Card>
 
       {ayudantes.length === 0 ? (
         <Card>
           <Vacio>
             Para dar de alta a un ayudante corre{" "}
-            <code className="rounded bg-slate-100 px-1 dark:bg-brick-800">
+            <code className="rounded bg-slate-100 px-1">
               npm run usuario
             </code>{" "}
             en la terminal y elige la opción 2. Después regresa aquí para
@@ -69,14 +109,14 @@ export default async function Equipo() {
             />
 
             {a.accesos.length > 0 ? (
-              <ul className="divide-y divide-slate-100 dark:divide-brick-700">
+              <ul className="divide-y divide-slate-100">
                 {a.accesos.map((acceso) => {
                   const vencido =
                     acceso.expiraEn != null && acceso.expiraEn < new Date();
                   return (
                     <li
                       key={acceso.id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5"
+                      className="flex items-center justify-between gap-3 px-6 py-3"
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm">{acceso.propiedad.nombre}</span>
@@ -108,7 +148,7 @@ export default async function Equipo() {
 
             <form
               action={darAccesoAyudante}
-              className="grid gap-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-4 dark:border-brick-700"
+              className="grid gap-3 border-t border-linea/60 px-6 py-5 sm:grid-cols-4"
             >
               <input type="hidden" name="usuarioId" value={a.id} />
               <label className="text-xs sm:col-span-2">
@@ -132,10 +172,7 @@ export default async function Equipo() {
                 />
               </label>
               <div className="flex items-end">
-                <button
-                  type="submit"
-                  className="rounded-md bg-brick-800 px-4 py-2 text-sm font-medium text-white hover:bg-brick-700"
-                >
+                <button type="submit" className={BOTON_PRIMARIO}>
                   Dar acceso
                 </button>
               </div>
@@ -156,9 +193,9 @@ export default async function Equipo() {
         {bitacora.length === 0 ? (
           <Vacio>Sin movimientos todavía.</Vacio>
         ) : (
-          <ul className="divide-y divide-slate-100 text-sm dark:divide-brick-700">
+          <ul className="divide-y divide-slate-100 text-sm">
             {bitacora.map((b) => (
-              <li key={b.id} className="flex flex-wrap gap-x-2 px-4 py-2">
+              <li key={b.id} className="flex flex-wrap gap-x-2 px-6 py-2.5">
                 <span className="text-xs text-slate-400 tabular">
                   {b.cuando.toLocaleString("es-MX", {
                     day: "2-digit",
