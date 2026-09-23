@@ -46,9 +46,11 @@ export default async function PantallaAyudante({
       ...(busqueda
         ? {
             OR: [
-              { nombreArchivo: { contains: busqueda } },
-              { tramite: { catalogo: { nombre: { contains: busqueda } } } },
-              { propiedad: { nombre: { contains: busqueda } } },
+              // Postgres distingue mayúsculas; sin "insensitive", buscar "ine" no
+              // encontraría la "INE". SQLite no las distinguía y no se notaba.
+              { nombreArchivo: { contains: busqueda, mode: "insensitive" } },
+              { tramite: { catalogo: { nombre: { contains: busqueda, mode: "insensitive" } } } },
+              { propiedad: { nombre: { contains: busqueda, mode: "insensitive" } } },
             ],
           }
         : {}),

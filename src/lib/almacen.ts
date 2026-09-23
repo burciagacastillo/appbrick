@@ -1,14 +1,55 @@
 import { mkdir, writeFile, readFile, unlink, access } from "node:fs/promises";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join, dirname, extname, resolve, sep } from "node:path";
+import { join, dirname, resolve, sep, posix } from "node:path";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { tipoReal, esImagen, type TipoSeguro } from "./tipos-archivo";
 
-// Almacén de archivos.
+// Almacén de archivos: documentos de los expedientes y fotos del catálogo.
 //
-// Hoy: carpeta local (almacen/ en la raíz, fuera de git).
-// Al publicar: se cambia este archivo por el SDK de Supabase Storage o S3.
-// El resto de la app solo conoce "rutas relativas" y no sabe dónde viven
-// realmente los bytes — por eso migrar no obliga a tocar nada más.
+// Dos destinos, y el resto de la app no sabe cuál se usa — solo conoce
+// "rutas relativas" como "propiedades/turmalina/documentos/8 - INE.pdf":
+//
+//   · local    → carpeta almacen/ en tu computadora (fuera de git)
+//   · supabase → bucket privado de Supabase Storage
+//
+// Se usa Supabase si están SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY.
+//
+// POR QUÉ IMPORTA: en Vercel el disco se borra entre peticiones. Si la app
+// publicada escribiera en disco, las INE que suben tus compradores
+// desaparecerían sin avisar. Por eso, publicada y sin Supabase configurado,
+// la app se niega a guardar en vez de fingir que guardó.
+
+type Destino = "local" | "supabase";
+
+function destino(): Destino {
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) return "supabase";
+
+  if (process.env.VERCEL) {
+    throw new Error(
+      "Falta configurar Supabase Storage (SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY). " +
+        "Sin eso, los archivos se perderían: en Vercel el disco se borra solo."
+    );
+  }
+  return "local";
+}
+
+const BUCKET = process.env.APPBRICK_BUCKET ?? "almacen";
+
+let cliente: SupabaseClient | null = null;
+
+/**
+ * Cliente con la llave de servicio. Salta los permisos de Supabase, así que
+ * SOLO existe en el servidor: nunca se importa desde un componente de cliente
+ * ni lleva el prefijo NEXT_PUBLIC_, que la mandaría al navegador.
+ */
+function supabase(): SupabaseClient {
+  if (!cliente) {
+    cliente = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return cliente;
+}
 
 // Anclado a process.cwd() y a una subcarpeta fija: si se dejara abierto a
 // cualquier ruta del .env, el empaquetador tiene que rastrear todo el proyecto
@@ -52,7 +93,7 @@ export function nombrarConConvencion(
   extension: string
 ): string {
   const sinAcentos = (s: string) =>
-    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
   const base = limpiarNombre(
     `${numero}${subTipo ?? ""} - ${sinAcentos(nombreTramite)} ${sinAcentos(nombrePropiedad)}`
@@ -61,11 +102,26 @@ export function nombrarConConvencion(
 }
 
 /**
+ * Normaliza una ruta relativa a diagonales normales y verifica que no escape.
+ *
+ * Las rutas se guardan en la base SIEMPRE con "/": en Windows path.join usa
+ * "\", y una ruta guardada así en tu computadora no serviría como llave en
+ * Supabase ni en el servidor Linux de Vercel.
+ */
+export function rutaSegura(rutaRelativa: string): string {
+  const normal = posix.normalize(rutaRelativa.replace(/\\/g, "/"));
+  if (normal.startsWith("../") || normal === ".." || normal.startsWith("/")) {
+    throw new Error(`Ruta fuera del almacén: ${rutaRelativa}`);
+  }
+  return normal;
+}
+
+/**
  * Convierte una ruta relativa en absoluta y verifica que no se salga del
- * almacén. Todo acceso a disco pasa por aquí.
+ * almacén local. Todo acceso a disco pasa por aquí.
  */
 function resolverDentroDelAlmacen(rutaRelativa: string): string {
-  const absoluta = resolve(RAIZ, rutaRelativa);
+  const absoluta = resolve(RAIZ, rutaSegura(rutaRelativa));
   if (absoluta !== RAIZ && !absoluta.startsWith(RAIZ + sep)) {
     throw new Error(`Ruta fuera del almacén: ${rutaRelativa}`);
   }
@@ -74,7 +130,7 @@ function resolverDentroDelAlmacen(rutaRelativa: string): string {
 
 /** Carpeta de una propiedad dentro del almacén. */
 export function carpetaDe(propiedadId: string, tipo: "documentos" | "fotos") {
-  return join("propiedades", limpiarNombre(propiedadId), tipo);
+  return posix.join("propiedades", limpiarNombre(propiedadId), tipo);
 }
 
 /**
@@ -85,40 +141,80 @@ export function carpetaDe(propiedadId: string, tipo: "documentos" | "fotos") {
 export async function guardar(
   rutaCarpeta: string,
   nombreArchivo: string,
-  contenido: Buffer
+  contenido: Buffer,
+  tipo?: TipoSeguro
 ): Promise<string> {
   const limpio = limpiarNombre(nombreArchivo);
   if (!limpio) throw new Error("El nombre del archivo quedó vacío al limpiarlo");
 
-  let rutaRelativa = join(rutaCarpeta, limpio);
-  let absoluta = resolverDentroDelAlmacen(rutaRelativa);
-
-  const ext = extname(limpio);
+  const carpeta = rutaSegura(rutaCarpeta);
+  const ext = posix.extname(limpio);
   const sinExt = limpio.slice(0, limpio.length - ext.length);
-  let intento = 1;
-  while (await existe(rutaRelativa)) {
-    rutaRelativa = join(rutaCarpeta, `${sinExt} (${intento})${ext}`);
-    absoluta = resolverDentroDelAlmacen(rutaRelativa);
-    intento++;
-    if (intento > 100) throw new Error("Demasiados archivos con el mismo nombre");
+
+  for (let intento = 0; intento <= 100; intento++) {
+    const nombre = intento === 0 ? limpio : `${sinExt} (${intento})${ext}`;
+    const ruta = rutaSegura(posix.join(carpeta, nombre));
+
+    if (destino() === "supabase") {
+      // upsert: false → si ya existe, Supabase lo rechaza y probamos otro
+      // nombre. Así ni dos subidas simultáneas se pisan.
+      const { error } = await supabase()
+        .storage.from(BUCKET)
+        .upload(ruta, contenido, {
+          upsert: false,
+          contentType: tipo ?? "application/octet-stream",
+        });
+      if (!error) return ruta;
+      if (/exist|duplicate|409/i.test(`${error.message} ${"statusCode" in error ? error.statusCode : ""}`)) {
+        continue;
+      }
+      throw new Error(`No se pudo guardar el archivo: ${error.message}`);
+    }
+
+    if (await existe(ruta)) continue;
+    const absoluta = resolverDentroDelAlmacen(ruta);
+    await mkdir(dirname(absoluta), { recursive: true });
+    await writeFile(absoluta, contenido);
+    return ruta;
   }
 
-  await mkdir(dirname(absoluta), { recursive: true });
-  await writeFile(absoluta, contenido);
-  return rutaRelativa;
+  throw new Error("Demasiados archivos con el mismo nombre");
 }
 
 export async function leer(rutaRelativa: string): Promise<Buffer> {
-  return readFile(resolverDentroDelAlmacen(rutaRelativa));
+  const ruta = rutaSegura(rutaRelativa);
+
+  if (destino() === "supabase") {
+    const { data, error } = await supabase().storage.from(BUCKET).download(ruta);
+    if (error || !data) throw new Error(`No se encontró el archivo: ${ruta}`);
+    return Buffer.from(await data.arrayBuffer());
+  }
+  return readFile(resolverDentroDelAlmacen(ruta));
 }
 
 export async function eliminar(rutaRelativa: string): Promise<void> {
-  await unlink(resolverDentroDelAlmacen(rutaRelativa));
+  const ruta = rutaSegura(rutaRelativa);
+
+  if (destino() === "supabase") {
+    const { error } = await supabase().storage.from(BUCKET).remove([ruta]);
+    if (error) throw new Error(`No se pudo borrar: ${error.message}`);
+    return;
+  }
+  await unlink(resolverDentroDelAlmacen(ruta));
 }
 
 export async function existe(rutaRelativa: string): Promise<boolean> {
+  const ruta = rutaSegura(rutaRelativa);
+
+  if (destino() === "supabase") {
+    const carpeta = posix.dirname(ruta);
+    const nombre = posix.basename(ruta);
+    const { data } = await supabase().storage.from(BUCKET).list(carpeta, { search: nombre });
+    return Boolean(data?.some((f) => f.name === nombre));
+  }
+
   try {
-    await access(resolverDentroDelAlmacen(rutaRelativa));
+    await access(resolverDentroDelAlmacen(ruta));
     return true;
   } catch {
     return false;
@@ -126,9 +222,9 @@ export async function existe(rutaRelativa: string): Promise<boolean> {
 }
 
 /**
- * Valida un archivo subido. A diferencia de la versión anterior, NO confía en
- * el mimeType que declara el navegador: lo deduce de los bytes.
- * Devuelve el tipo verificado, que es el único que se debe guardar y servir.
+ * Valida un archivo subido. NO confía en el mimeType que declara el
+ * navegador: lo deduce de los bytes. Devuelve el tipo verificado, que es el
+ * único que se debe guardar y servir.
  */
 export function validarArchivo(
   contenido: Buffer,
@@ -161,8 +257,8 @@ export function validarArchivo(
 
 /**
  * Lista los archivos de una carpeta del disco. Vive aquí porque el seed y el
- * re-escaneo la necesitan igual, y tenerla dos veces ya había empezado a
- * divergir.
+ * re-escaneo la necesitan igual. Solo tiene sentido en tu computadora: lee
+ * tus carpetas de Windows, que la app publicada no puede ver.
  */
 export function listarArchivosDe(dir: string): string[] {
   if (!existsSync(dir)) return [];

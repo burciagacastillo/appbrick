@@ -1,17 +1,30 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-// Único lugar donde se construye la conexión.
+// Único lugar donde se construye la conexión. Postgres en todos lados:
+//   · En tu computadora: el Postgres local de `npx prisma dev`.
+//   · Publicada: Supabase, por su "pooler" (DATABASE_URL, puerto 6543).
 //
-// Para migrar a Supabase: cambiar este adapter por PrismaPg y el provider en
-// schema.prisma. Ni un archivo más de la app se entera.
+// El pooler importa en la nube: cada petición puede levantar un servidor
+// nuevo, y sin él cada uno abriría sus propias conexiones hasta agotar las
+// que permite el plan gratis.
 
 export function crearPrisma() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Falta DATABASE_URL en el .env");
 
+  // Conexiones por servidor. Por defecto UNA, por dos razones:
+  //  · En Vercel cada petición puede levantar su propio servidor, y todos
+  //    comparten el límite de conexiones de Supabase. Con varias por
+  //    servidor, un pico de visitas lo agota y la app deja de responder.
+  //  · El Postgres local de `prisma dev` solo acepta una conexión a la vez;
+  //    con más, corta las sobrantes ("Connection terminated unexpectedly").
+  // Las consultas en paralelo simplemente esperan su turno: para el tamaño
+  // de esta app no se nota.
+  const max = Number(process.env.DATABASE_POOL_MAX ?? 1);
+
   return new PrismaClient({
-    adapter: new PrismaBetterSqlite3({ url }),
+    adapter: new PrismaPg({ connectionString: url, max }),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 }

@@ -91,7 +91,8 @@ export async function subirDocumento(
   const ruta = await guardar(
     carpetaDe(invitacion.propiedadId, "documentos"),
     nombreArchivo,
-    contenido
+    contenido,
+    validez.tipo
   );
 
   // Vigencia: se calcula desde hoy porque el invitado no captura la fecha del

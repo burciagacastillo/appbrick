@@ -142,8 +142,29 @@ export async function registrarAcceso(invitacionId: string) {
 
 /** El link completo, listo para pegarse en WhatsApp. */
 export function urlDelPortal(token: string, base?: string): string {
-  const raiz = base ?? process.env.APPBRICK_URL ?? "http://localhost:3000";
-  return `${raiz}/subir/${token}`;
+  return `${base ?? urlPublica()}/subir/${token}`;
+}
+
+/**
+ * La dirección con la que la app se ve desde internet.
+ *
+ * Importa porque va dentro de los links que mandas por WhatsApp: si saliera
+ * "localhost", el comprador recibiría un link que solo funciona en tu
+ * computadora.
+ *
+ *  1. APPBRICK_URL si la definiste (tu dominio propio, cuando lo tengas).
+ *  2. Si no, la dirección de producción que Vercel asigna sola
+ *     (appbrick.vercel.app). Se usa la de PRODUCCIÓN a propósito, no la de
+ *     cada despliegue: esas cambian con cada versión y los links viejos
+ *     dejarían de funcionar.
+ *  3. En tu computadora, localhost.
+ */
+export function urlPublica(): string {
+  if (process.env.APPBRICK_URL) return process.env.APPBRICK_URL.replace(/\/+$/, "");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  return "http://localhost:3000";
 }
 
 /** Mensaje listo para mandar, con el link dentro. */

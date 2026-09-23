@@ -10,17 +10,20 @@
 // personales) NUNCA se serializan hacia la cara pública. La lista blanca vive
 // en src/lib/publico.ts y es el único camino permitido hacia afuera.
 //
-// Nota sobre SQLite: no soporta enums nativos. Los valores válidos viven en
-// src/lib/constants.ts como uniones de TypeScript. Al migrar a Postgres
-// (Supabase) se pueden convertir a enums reales sin tocar la app.
+// Los catálogos de valores (etapas, estados, categorías) son String y sus
+// valores válidos viven en src/lib/constants.ts, validados con Zod en
+// src/lib/esquemas.ts. Venían así de SQLite, que no tiene enums; en Postgres
+// se podrían volver enums, pero cambiarlos exige una migración cada vez que
+// agregas una categoría de gasto, y hoy la validación ya cubre el riesgo.
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// La URL de conexión ya no vive aquí (Prisma 7): se define en prisma.config.ts.
+// Postgres en todos lados: local con `npx prisma dev`, publicada en Supabase.
+// La URL de conexión vive en prisma.config.ts (Prisma 7).
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // ---------------------------------------------------------------------------

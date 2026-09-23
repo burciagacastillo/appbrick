@@ -74,7 +74,7 @@ export async function subirFotos(
     const nombre = limpiarNombre(
       `${aSlug(propiedad.nombre)}-${orden + 1}${validez.extension}`
     );
-    const ruta = await guardar(carpetaDe(propiedadId, "fotos"), nombre, contenido);
+    const ruta = await guardar(carpetaDe(propiedadId, "fotos"), nombre, contenido, validez.tipo);
 
     await db.foto.create({
       data: {

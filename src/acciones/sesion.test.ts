@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { entrar } from "./sesion";
-import { crearPrisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { hashearPassword } from "@/lib/sesion";
 import { reiniciarLimitador } from "@/lib/limitador";
 
@@ -10,7 +10,6 @@ import { reiniciarLimitador } from "@/lib/limitador";
 // el camino exitoso llama a cookies() de Next, que necesita una petición de
 // verdad. El freno de fuerza bruta vive justo en los caminos que fallan.
 
-const db = crearPrisma();
 const CORREO = "prueba-login@local";
 
 function forma(email: string, password: string) {

@@ -29,7 +29,10 @@ Una **Propiedad** tiene un **expediente de 34 trámites**, una **bitácora de ga
 ## Stack
 
 - Next.js 16 (App Router, Server Components) + TypeScript + Tailwind 4
-- Prisma 7 sobre **SQLite** (`dev.db` en la raíz)
+- Prisma 7 sobre **Postgres**: local con `npm run db:local` (`prisma dev`),
+  publicada en **Supabase**. Migraciones en `prisma/migrations/`.
+- Publicada en **Vercel** (plan gratis, decisión de Erick sabiendo que sus
+  términos prohíben uso comercial; pasar a Pro no toca el código).
 - Archivos en `almacen/` (fuera de git). Un solo componente de cliente:
   `subir-form.tsx`, y existe porque el invitado sube fotos con señal mala.
 
@@ -70,7 +73,7 @@ El ayudante arranca **sin acceso a nada** y se le asignan propiedades en
 
 ## Pruebas
 
-`npm test` — 95 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 130 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -132,12 +135,29 @@ aprobación de Meta y cobra por conversación. `fichaParaBot()` ya genera el con
 que el bot va a consumir — y como sale de la ficha pública, el bot no puede
 contestar con un dato confidencial: no lo tiene.
 
-**SQLite, no Supabase (todavía).** La conexión está aislada en `src/lib/db.ts` y
-`prisma.config.ts`. Migrar = cambiar el adapter y el `provider`. El almacén de
-archivos está igual de aislado en `src/lib/almacen.ts`.
+**Postgres, una conexión por servidor.** `DATABASE_POOL_MAX` vale 1 por
+defecto. En Vercel cada petición puede ser un servidor nuevo y todos comparten
+el límite de Supabase. Y el Postgres local de `prisma dev` **solo acepta una
+conexión en total**: si tienes `npm run dev` prendido mientras corres
+`npm test`, las pruebas fallan con "Server has closed the connection". Apaga
+uno. Por lo mismo, las pruebas usan el `db` compartido, nunca `crearPrisma()`.
 
-**SQLite no tiene enums.** Los catálogos de valores viven en
-`src/lib/constants.ts` como uniones de TypeScript.
+**Dos direcciones de base en Supabase.** `DATABASE_URL` = Transaction pooler
+(6543), la usa la app. `DIRECT_URL` = Session pooler (5432), la usan las
+migraciones. No la "Direct connection": en el plan gratis es solo IPv6.
+
+**El almacén elige destino solo** (`src/lib/almacen.ts`): Supabase Storage si
+hay `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, si no la carpeta local.
+Publicada en Vercel sin Supabase, **se niega a guardar** en vez de escribir en
+un disco que se borra solo. Las rutas se guardan siempre con `/`
+(`rutaSegura()`), aunque se generen en Windows.
+
+**Los links de invitación** salen de `urlPublica()`: `APPBRICK_URL` si existe,
+si no la dirección de PRODUCCIÓN de Vercel (no la de cada despliegue, que
+cambia y rompería los links ya enviados).
+
+**Catálogos de valores como texto, no enums.** Validados con Zod. Volverlos
+enums exigiría una migración cada vez que agregues una categoría de gasto.
 
 ## El escáner de carpetas
 
@@ -174,6 +194,23 @@ igual al archivo. Banderas que importan:
 - `ayudaInvitado` — la explicación en lenguaje llano para alguien que nunca
   ha tramitado un crédito
 
+## Publicar
+
+Vercel corre `vercel-build` en cada publicación: `prisma migrate deploy &&
+next build`. Si una migración falla, la versión rota no se publica.
+
+Desde la computadora de Erick, contra producción (lee `.env.produccion`, que
+gana sobre `.env`, y se niega si apunta a localhost):
+
+```bash
+npm run prod:verificar   # revisa todo; lo más importante: que el bucket sea PRIVADO
+npm run prod:migrar      # tablas
+npm run prod:sembrar     # catálogo de 34 + las propiedades de sus carpetas
+npm run prod:usuario     # su cuenta
+```
+
+`produccion.ejemplo.env` es la plantilla (sin secretos, sí va en git).
+
 ## Comandos
 
 ```bash
@@ -184,6 +221,8 @@ npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente
 npm run db:seed    # carga inicial (idempotente)
 npm run llave      # genera la llave de cifrado
+npm run db:local   # levanta el Postgres local (si `npm test` dice ECONNREFUSED)
+npm run db:migrar  # crea una migración nueva tras cambiar schema.prisma
 npm run estado     # radiografía: documentos, bitácora, invitaciones
 ```
 
@@ -213,10 +252,9 @@ cualquiera con sesión puede mandar un FormData armado a mano.
 - **Piloto con una operación real** antes de publicar. Todo lo probado hasta
   hoy lo probó quien sabe cómo funciona; falta un comprador de verdad.
 
-- **Segundo factor para el admin. Bloquea publicar.** Esa cuenta descifra las
-  contraseñas de Infonavit; su contraseña sola no basta.
-- El limitador de intentos vive en memoria: al pasar a varias instancias hay
-  que moverlo a una tabla, o cada instancia llevará su propia cuenta.
+- El driver de Supabase Storage no se ha probado contra un proyecto real
+  todavía: `npm run prod:verificar` hace una escritura/lectura/borrado real
+  y es la primera prueba.
 - Chatbot fase 2 (WhatsApp Business API).
 - Migrar a Supabase (base y almacén) al publicar.
 - Marca de agua en descargas del ayudante. Hoy queda registrado quién bajó qué,

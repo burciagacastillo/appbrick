@@ -4,6 +4,7 @@ import {
   nombrarConConvencion,
   validarArchivo,
   carpetaDe,
+  rutaSegura,
   TAMANO_MAXIMO,
 } from "./almacen";
 
@@ -52,7 +53,31 @@ describe("limpiarNombre — defensa contra rutas maliciosas", () => {
   });
 });
 
+describe("rutaSegura — las rutas que se guardan en la base", () => {
+  it("siempre con diagonal normal, aunque venga de Windows", () => {
+    // Una ruta con "\" guardada en tu computadora no serviría en Supabase ni
+    // en el servidor de Vercel.
+    expect(rutaSegura("propiedades\\turmalina\\documentos\\8 - INE.pdf")).toBe(
+      "propiedades/turmalina/documentos/8 - INE.pdf"
+    );
+  });
+
+  it("rechaza rutas que se salen del almacén", () => {
+    expect(() => rutaSegura("../../.env")).toThrow();
+    expect(() => rutaSegura("propiedades/../../.env")).toThrow();
+    expect(() => rutaSegura("/etc/passwd")).toThrow();
+  });
+
+  it("deja pasar una ruta normal", () => {
+    expect(rutaSegura("propiedades/x/fotos/1.jpg")).toBe("propiedades/x/fotos/1.jpg");
+  });
+});
+
 describe("carpetaDe — el id de la propiedad tampoco es de fiar", () => {
+  it("arma la carpeta con diagonales normales en cualquier sistema", () => {
+    expect(carpetaDe("turmalina", "documentos")).toBe("propiedades/turmalina/documentos");
+  });
+
   it("no permite armar rutas con un id manipulado", () => {
     const r = carpetaDe("../../otra", "documentos");
     expect(r).not.toContain("..");

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import { crearPrisma } from "@/lib/db";
+import { db } from "@/lib/db";
 import { descifrar } from "@/lib/cripto";
 import { sincronizarTramitesDeDatos } from "./personas";
 
@@ -7,7 +7,6 @@ import { sincronizarTramitesDeDatos } from "./personas";
 // descifrar funcionan, pero nada verificaba que la contraseña llegara cifrada
 // A LA BASE. Aquí se mira la columna directamente.
 
-const db = crearPrisma();
 
 const PROPIEDAD = "propiedad-prueba-personas";
 let personaId = "";
