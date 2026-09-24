@@ -55,6 +55,19 @@ Ver → `revelarPassword`, la **única** función que saca un secreto en claro:
 exige admin, se invoca solo al pedirlo, y cada consulta queda registrada.
 La contraseña **nunca viaja con la página**, solo cuando se pide.
 
+**Ojo con los componentes de cliente:** todo lo que reciben viaja al
+navegador. Hasta el 24/09/2026 las pestañas Personas y Publicar recibían la
+propiedad completa, con la contraseña cifrada (y en Publicar, NSS y dinero).
+Ahora `sinContrasenas()` en la página de la propiedad la cambia por una marca
+("guardada") y Publicar recibe solo los campos de la ficha pública. Nunca
+pasarle una `Propiedad` o `Persona` entera a un componente con "use client".
+
+**Agregar persona** pide de una vez, para comprador y vendedor, NSS, crédito,
+estado civil (régimen y cónyuge si es casado), CURP y RFC. Si la persona ya
+existía, solo llena lo que venga: un campo vacío no borra lo guardado. El
+vendedor también tiene NSS y crédito (el suyo, por liquidar); antes su ficha
+no los mostraba y **guardarla borraba su número de crédito**.
+
 Si el campo llega vacío al guardar, se conserva la que estaba: si no, editar
 el teléfono la borraría sin avisar.
 
@@ -82,7 +95,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 178 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 183 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -345,7 +358,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 178 pruebas
+npm test           # las 183 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

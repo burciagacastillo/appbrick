@@ -239,6 +239,19 @@ export async function vincularPersona(
   if (!v.ok) return { ok: false, error: v.error };
   const { propiedadId, nombre, telefono, rol } = v.datos;
 
+  // Los datos del trámite que vinieron en el alta. Si no está casado, el
+  // régimen y el cónyuge no aplican.
+  const casado = v.datos.estadoCivil === "casado";
+  const extra = {
+    nss: v.datos.nss,
+    numeroCredito: v.datos.numeroCredito,
+    curp: v.datos.curp,
+    rfc: v.datos.rfc,
+    estadoCivil: v.datos.estadoCivil,
+    regimenMatrimonial: casado ? v.datos.regimenMatrimonial : null,
+    conyugeNombre: casado ? v.datos.conyugeNombre : null,
+  };
+
   // Mismo criterio que en las invitaciones: el nombre solo no identifica a
   // nadie. Con teléfono la coincidencia es fiable; sin él, se desambigua.
   let persona = telefono
@@ -257,9 +270,20 @@ export async function vincularPersona(
       };
     } else {
       persona = await db.persona.create({
-        data: { nombre, telefono: telefono ?? null },
+        data: { nombre, telefono: telefono ?? null, ...extra },
       });
     }
+  }
+
+  // Si la persona ya existía (p. ej. vende aquí y compró antes), solo se
+  // llena lo que vino: un campo vacío en el alta no borra lo que ya tenía.
+  const nuevos = Object.fromEntries(Object.entries(extra).filter(([, valor]) => valor != null));
+  if (v.datos.estadoCivil && !casado) {
+    // Dejó de estar casado (o se corrigió): régimen y cónyuge ya no aplican.
+    Object.assign(nuevos, { regimenMatrimonial: null, conyugeNombre: null });
+  }
+  if (Object.keys(nuevos).length > 0) {
+    persona = await db.persona.update({ where: { id: persona.id }, data: nuevos });
   }
 
   const yaEsta = await db.propiedadPersona.findFirst({
@@ -273,8 +297,17 @@ export async function vincularPersona(
     data: { propiedadId, personaId: persona.id, rol },
   });
 
-  // Si ya la teníamos capturada como casada, se abren los del cónyuge.
-  await sincronizarConyuge(propiedadId);
+  // El NSS mueve el trámite 13, y el estado civil abre o cierra lo del
+  // cónyuge — aquí y en cualquier otra propiedad donde esté esta persona.
+  await sincronizarTramitesDeDatos(propiedadId);
+  const vinculos = await db.propiedadPersona.findMany({
+    where: { personaId: persona.id },
+    select: { propiedadId: true },
+  });
+  for (const otra of new Set(vinculos.map((x) => x.propiedadId))) {
+    await sincronizarConyuge(otra);
+    refrescar(otra);
+  }
 
   refrescar(propiedadId);
   return { ok: true };

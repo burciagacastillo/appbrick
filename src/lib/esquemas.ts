@@ -244,6 +244,25 @@ export function validarOTronar<T extends z.ZodType>(
 
 // --- Personas ---------------------------------------------------------------
 
+/**
+ * NSS: sin espacios ni guiones, para que el botón de copiar pegue el número
+ * limpio en el portal de Infonavit. No se le exige formato: un NSS viejo mal
+ * capturado no debe impedir editar a la persona.
+ */
+const nssCampo = textoCorto
+  .optional()
+  .transform((v) => (v ? v.split(" ").join("").split("-").join("") : "") || null);
+
+const estadoCivilCampo = z
+  .union([z.literal(""), z.enum(ESTADOS_CIVILES.map((e) => e.id) as [string, ...string[]])])
+  .optional()
+  .transform((v) => v || null);
+
+const regimenCampo = z
+  .union([z.literal(""), z.enum(REGIMENES.map((r) => r.id) as [string, ...string[]])])
+  .optional()
+  .transform((v) => v || null);
+
 export const EsquemaPersona = z.object({
   personaId: id,
   propiedadId: id,
@@ -252,17 +271,11 @@ export const EsquemaPersona = z.object({
   email: opcional,
   curp: opcional,
   rfc: opcional,
-  nss: opcional,
+  nss: nssCampo,
   domicilio: opcionalLargo,
 
-  estadoCivil: z
-    .union([z.literal(""), z.enum(ESTADOS_CIVILES.map((e) => e.id) as [string, ...string[]])])
-    .optional()
-    .transform((v) => v || null),
-  regimenMatrimonial: z
-    .union([z.literal(""), z.enum(REGIMENES.map((r) => r.id) as [string, ...string[]])])
-    .optional()
-    .transform((v) => v || null),
+  estadoCivil: estadoCivilCampo,
+  regimenMatrimonial: regimenCampo,
   conyugeNombre: opcional,
 
   empleador: opcional,
@@ -294,11 +307,23 @@ export const EsquemaReferencias = z.object({
   parentesco2: opcional,
 });
 
+/**
+ * Agregar una persona a la propiedad. Para comprador y vendedor, de una vez
+ * lo que Erick consulta más: NSS, crédito, estado civil (y régimen y cónyuge
+ * si es casado), CURP y RFC. Todo opcional: se puede completar después.
+ */
 export const EsquemaVincular = z.object({
   propiedadId: id,
   nombre: textoCorto.min(1, "Falta el nombre"),
   telefono: opcional,
   rol: z.enum(["vendedor", "comprador", "socio", "contratista", "notario", "valuador", "otro"]),
+  nss: nssCampo,
+  numeroCredito: opcional,
+  estadoCivil: estadoCivilCampo,
+  regimenMatrimonial: regimenCampo,
+  conyugeNombre: opcional,
+  curp: opcional,
+  rfc: opcional,
 });
 
 export const EsquemaRevelar = z.object({

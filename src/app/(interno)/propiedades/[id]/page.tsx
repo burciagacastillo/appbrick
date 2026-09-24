@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { obtenerPropiedad } from "@/lib/queries";
+import { obtenerPropiedad, type PropiedadDetalle } from "@/lib/queries";
 import { ChevronLeft } from "lucide-react";
 import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO, Stat } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
@@ -27,6 +27,25 @@ const TABS = [
   { id: "publicar", label: "Publicar" },
 ] as const;
 
+
+/**
+ * La pestaña Personas es un componente de cliente: todo lo que recibe viaja
+ * al navegador. La contraseña de Infonavit (aunque cifrada) no debe ir: la
+ * pantalla solo necesita saber SI hay una guardada. Para verla existe
+ * revelarPassword, que la pide aparte y deja registro.
+ */
+function sinContrasenas(p: PropiedadDetalle): PropiedadDetalle {
+  return {
+    ...p,
+    personas: p.personas.map((v) => ({
+      ...v,
+      persona: {
+        ...v.persona,
+        infonavitPasswordCifrada: v.persona.infonavitPasswordCifrada ? "guardada" : null,
+      },
+    })),
+  };
+}
 
 export default async function DetallePropiedad({
   params,
@@ -155,13 +174,47 @@ export default async function DetallePropiedad({
         <Expediente tramites={p.tramites} propiedadId={p.id} />
       ) : null}
 
-      {tabActual === "personas" ? <Personas propiedad={p} /> : null}
+      {tabActual === "personas" ? (
+        <Personas
+          propiedad={sinContrasenas(p)}
+          rolInicial={typeof sp.rol === "string" ? sp.rol : undefined}
+        />
+      ) : null}
 
       {tabActual === "gastos" ? <TablaGastos propiedad={p} /> : null}
 
       {tabActual === "paquetes" ? <Paquetes propiedad={p} /> : null}
 
-      {tabActual === "publicar" ? <Publicacion propiedad={p} /> : null}
+      {/* Componente de cliente: solo los campos de la ficha pública, no la
+          propiedad completa (que trae personas, NSS y dinero). */}
+      {tabActual === "publicar" ? (
+        <Publicacion
+          propiedad={{
+            id: p.id,
+            nombre: p.nombre,
+            publicada: p.publicada,
+            destacada: p.destacada,
+            slugPublico: p.slugPublico,
+            tituloPublico: p.tituloPublico,
+            descripcionPublica: p.descripcionPublica,
+            precioPublico: p.precioPublico,
+            mostrarPrecio: p.mostrarPrecio,
+            recamaras: p.recamaras,
+            banos: p.banos,
+            m2Terreno: p.m2Terreno,
+            m2Construccion: p.m2Construccion,
+            cochera: p.cochera,
+            aceptaInfonavit: p.aceptaInfonavit,
+            aceptaBancario: p.aceptaBancario,
+            fotos: p.fotos.map((f) => ({
+              id: f.id,
+              archivo: f.archivo,
+              esPortada: f.esPortada,
+              alt: f.alt,
+            })),
+          }}
+        />
+      ) : null}
 
       {tabActual === "datos" ? (
         <Card>

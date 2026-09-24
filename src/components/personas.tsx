@@ -12,7 +12,7 @@ import {
   type Resultado,
   type ResultadoRevelar,
 } from "@/acciones/personas";
-import { Card, CardHeader, Badge, Campo, CLASE_CAMPO, ErrorCampo, Exito, Vacio } from "./ui";
+import { Card, CardHeader, Badge, Campo, CLASE_CAMPO, ErrorCampo, Exito, Vacio, BOTON_PRIMARIO } from "./ui";
 import { ESTADOS_CIVILES, REGIMENES, ROLES_PERSONA, mxn } from "@/lib/constants";
 import type { PropiedadDetalle } from "@/lib/queries";
 
@@ -117,6 +117,7 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
   const [casado, setCasado] = useState(p.estadoCivil === "casado");
 
   const esComprador = v.rol === "comprador";
+  const conInfonavit = esComprador || v.rol === "vendedor";
 
   return (
     <Card>
@@ -214,8 +215,10 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
           <div className="sm:col-span-2" />
         )}
 
-        {/* Lo del crédito: solo tiene sentido para el comprador */}
-        {esComprador ? (
+        {/* Crédito Infonavit: del comprador (el que se tramita) y del vendedor
+            (el que trae por liquidar). Lo que no se enseña viaja escondido:
+            si no, guardar a la persona borraba esos datos. */}
+        {conInfonavit ? (
           <>
             <div className="sm:col-span-3 mt-2 border-t border-linea/60 pt-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -259,6 +262,18 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
               />
             </Campo>
 
+          </>
+        ) : (
+          <>
+            <input type="hidden" name="nss" value={p.nss ?? ""} />
+            <input type="hidden" name="numeroCredito" value={p.numeroCredito ?? ""} />
+            <input type="hidden" name="infonavitUsuario" value={p.infonavitUsuario ?? ""} />
+          </>
+        )}
+
+        {/* El empleo sostiene la precalificación: solo del comprador. */}
+        {esComprador ? (
+          <>
             <div className="sm:col-span-3 mt-2 border-t border-linea/60 pt-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Empleo
@@ -293,7 +308,12 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
             </Campo>
           </>
         ) : (
-          <input type="hidden" name="nss" value={p.nss ?? ""} />
+          <>
+            <input type="hidden" name="empleador" value={p.empleador ?? ""} />
+            <input type="hidden" name="puesto" value={p.puesto ?? ""} />
+            <input type="hidden" name="antiguedadMeses" value={p.antiguedadMeses ?? ""} />
+            <input type="hidden" name="ingresoMensual" value={p.ingresoMensual ?? ""} />
+          </>
         )}
 
         <Campo etiqueta="Notas" className="sm:col-span-3">
@@ -404,44 +424,133 @@ function Referencias({
 
 // ---------------------------------------------------------------------------
 
-function Agregar({ propiedadId }: { propiedadId: string }) {
+/**
+ * Agregar una persona. Para comprador y vendedor pide de una vez lo que Erick
+ * consulta más (NSS, crédito, estado civil…), en vez de agregar primero y
+ * editar después. Lo demás (contraseña de Infonavit, empleo, referencias) se
+ * captura en su ficha, que aparece arriba en cuanto se agrega.
+ */
+function Agregar({ propiedadId, rolInicial }: { propiedadId: string; rolInicial?: string }) {
   const [estado, accion, pendiente] = useActionState<Resultado | null, FormData>(
     vincularPersona,
     null
   );
+  const rolValido = ROLES_PERSONA.some((r) => r.id === rolInicial) ? rolInicial! : "comprador";
+  const [rol, setRol] = useState(rolValido);
+  const [casado, setCasado] = useState(false);
+  const [vuelta, setVuelta] = useState(0);
+  const [ultimo, setUltimo] = useState<Resultado | null>(null);
+
+  // Al agregar bien, el formulario se limpia para capturar al siguiente.
+  if (estado !== ultimo) {
+    setUltimo(estado);
+    if (estado?.ok) {
+      setVuelta((n) => n + 1);
+      setCasado(false);
+    }
+  }
+
+  const delTramite = rol === "comprador" || rol === "vendedor";
 
   return (
-    <Card>
-      <CardHeader titulo="Agregar una persona" />
-      <form action={accion} className="grid gap-3 px-6 py-5 sm:grid-cols-4">
-        <input type="hidden" name="propiedadId" value={propiedadId} />
-        <Campo etiqueta="Nombre completo" className="sm:col-span-2">
-          <input name="nombre" required placeholder="Edgar Vázquez" className={CLASE_CAMPO} />
-        </Campo>
-        <Campo etiqueta="WhatsApp" nota="Evita confundir tocayos">
-          <input name="telefono" placeholder="614 123 4567" className={CLASE_CAMPO} />
-        </Campo>
-        <Campo etiqueta="Papel">
-          <select name="rol" defaultValue="comprador" className={CLASE_CAMPO}>
-            {ROLES_PERSONA.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </Campo>
-        <div className="sm:col-span-4">
-          <button
-            type="submit"
-            disabled={pendiente}
-            className="rounded-xl bg-tinta px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-          >
-            {pendiente ? "Agregando…" : "Agregar"}
-          </button>
-          {estado?.ok === false ? <ErrorCampo>{estado.error}</ErrorCampo> : null}
-        </div>
-      </form>
-    </Card>
+    <div id="agregar" className="scroll-mt-24">
+      <Card>
+        <CardHeader titulo="Agregar una persona" />
+        <form key={vuelta} action={accion} className="grid gap-4 px-6 pt-1 pb-6 sm:grid-cols-4">
+          <input type="hidden" name="propiedadId" value={propiedadId} />
+
+          <Campo etiqueta="Papel">
+            <select
+              name="rol"
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
+              className={CLASE_CAMPO}
+            >
+              {ROLES_PERSONA.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </Campo>
+          <Campo etiqueta="Nombre completo" className="sm:col-span-2">
+            <input name="nombre" required placeholder="Edgar Vázquez" className={CLASE_CAMPO} />
+          </Campo>
+          <Campo etiqueta="WhatsApp" nota="Evita confundir tocayos">
+            <input name="telefono" inputMode="tel" placeholder="614 123 4567" className={CLASE_CAMPO} />
+          </Campo>
+
+          {delTramite ? (
+            <>
+              <div className="border-t border-linea/60 pt-4 sm:col-span-4">
+                <h3 className="text-[13px] font-semibold text-tinta">Datos para el trámite</h3>
+                <p className="mt-0.5 text-xs text-tenue">
+                  Todo opcional: lo que no tengas ahorita lo completas después en su ficha.
+                </p>
+              </div>
+
+              <Campo etiqueta="NSS" nota="Número de seguro social">
+                <input name="nss" inputMode="numeric" className={`${CLASE_CAMPO} tabular`} />
+              </Campo>
+              <Campo etiqueta="Número de crédito">
+                <input name="numeroCredito" inputMode="numeric" className={`${CLASE_CAMPO} tabular`} />
+              </Campo>
+              <Campo etiqueta="CURP">
+                <input name="curp" autoCapitalize="characters" className={CLASE_CAMPO} />
+              </Campo>
+              <Campo etiqueta="RFC">
+                <input name="rfc" autoCapitalize="characters" className={CLASE_CAMPO} />
+              </Campo>
+
+              <Campo etiqueta="Estado civil" nota="Si es casado se abren los documentos de su cónyuge">
+                <select
+                  name="estadoCivil"
+                  defaultValue=""
+                  onChange={(e) => setCasado(e.target.value === "casado")}
+                  className={CLASE_CAMPO}
+                >
+                  <option value="">Sin especificar</option>
+                  {ESTADOS_CIVILES.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.label}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+              {casado ? (
+                <>
+                  <Campo etiqueta="Régimen">
+                    <select name="regimenMatrimonial" defaultValue="" className={CLASE_CAMPO}>
+                      <option value="">Sin especificar</option>
+                      {REGIMENES.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Campo>
+                  <Campo etiqueta="Nombre del cónyuge" className="sm:col-span-2">
+                    <input name="conyugeNombre" className={CLASE_CAMPO} />
+                  </Campo>
+                </>
+              ) : null}
+            </>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-3 pt-1 sm:col-span-4">
+            <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
+              {pendiente ? "Agregando…" : "Agregar"}
+            </button>
+            {estado?.ok ? <span className="text-sm text-emerald-700">Agregado. Su ficha está arriba.</span> : null}
+          </div>
+          {estado?.ok === false ? (
+            <div className="sm:col-span-4">
+              <ErrorCampo>{estado.error}</ErrorCampo>
+            </div>
+          ) : null}
+        </form>
+      </Card>
+    </div>
   );
 }
 
@@ -532,7 +641,14 @@ function Operacion({ p }: { p: PropiedadDetalle }) {
 
 // ---------------------------------------------------------------------------
 
-export function Personas({ propiedad }: { propiedad: PropiedadDetalle }) {
+export function Personas({
+  propiedad,
+  rolInicial,
+}: {
+  propiedad: PropiedadDetalle;
+  /** Papel preseleccionado al llegar desde "Sin comprador · Agregar". */
+  rolInicial?: string;
+}) {
   // Comprador primero, luego vendedor, luego el resto.
   const ORDEN = ["comprador", "vendedor", "socio"];
   const peso = (rol: string) => {
@@ -582,7 +698,7 @@ export function Personas({ propiedad }: { propiedad: PropiedadDetalle }) {
         ))
       )}
 
-      <Agregar propiedadId={propiedad.id} />
+      <Agregar propiedadId={propiedad.id} rolInicial={rolInicial} />
 
       <p className="text-xs text-slate-500">
         Esta pestaña solo la ve el administrador. El ayudante nunca ve NSS,

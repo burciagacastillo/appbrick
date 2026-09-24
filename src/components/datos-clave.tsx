@@ -100,7 +100,7 @@ function Lado({
 
       {deEsteLado.length === 0 ? (
         <Link
-          href={`/propiedades/${encodeURIComponent(propiedadId)}?tab=personas`}
+          href={`/propiedades/${encodeURIComponent(propiedadId)}?tab=personas&rol=${rol}#agregar`}
           className="mt-2 inline-flex text-sm text-slate-400 hover:text-tinta"
         >
           Sin {titulo.toLowerCase()} · Agregar →
