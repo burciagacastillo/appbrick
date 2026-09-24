@@ -1,4 +1,6 @@
-// Catálogo maestro del expediente Infonavit — los 34 documentos en 8 bloques.
+// Catálogo maestro del expediente Infonavit — 42 documentos en 7 bloques
+// (del 34 al 42 son del cónyuge y solo aparecen si el vendedor o el comprador
+// es casado).
 // Confirmado por Erick el 22 de septiembre de 2026: manda esta numeración
 // (1 = Poder, 2 = INE), la que ya usan los archivos de sus carpetas.
 //
@@ -30,7 +32,6 @@ const D = "Trámites municipales del inmueble";
 const E = "Recibos";
 const F = "Inmueble: legal y valor";
 const G = "Avalúo y crédito";
-const H = "Trámites";
 
 export const CATALOGO: ItemCatalogo[] = [
   // --- Bloque A — Vendedor (1-7) --------------------------------------------
@@ -58,10 +59,11 @@ export const CATALOGO: ItemCatalogo[] = [
     ayudaInvitado: "Sirve la copia certificada o la que descargas en gob.mx.",
   },
   {
+    // Aparece solo si el vendedor es casado (ver src/lib/conyuge.ts).
     numero: 6, bloque: "A", bloqueNombre: A, nombre: "Acta de matrimonio",
-    opcional: true, loSubeInvitado: true,
-    notasAyuda: "Solo si el vendedor es casado por bienes mancomunados.",
-    ayudaInvitado: "Solo si eres casado. Si eres soltero, sáltalo.",
+    loSubeInvitado: true,
+    notasAyuda: "Solo si el vendedor es casado. Se abre sola al capturarlo en Personas.",
+    ayudaInvitado: "Tu acta de matrimonio. Sirve la copia certificada o la de gob.mx.",
   },
   {
     numero: 7, bloque: "A", bloqueNombre: A, nombre: "Estado de cuenta bancaria",
@@ -194,8 +196,62 @@ export const CATALOGO: ItemCatalogo[] = [
     ayudaInvitado: "La constancia del curso en línea de Infonavit.",
   },
 
-  // --- Bloque H — Trámites (34) ---------------------------------------------
-  { numero: 34, bloque: "H", bloqueNombre: H, nombre: "Bonificación" },
+  // El 34 "Bonificación" (bloque H) se quitó el 24/09/2026: fue un error de
+  // dictado; lo que Erick quería es la constancia de zonificación, que ya es
+  // el 21. El número 34 se reutiliza abajo.
+
+  // --- Cónyuge (34-42) ---------------------------------------------------------
+  // Definido por Erick el 24/09/2026: si el vendedor o el comprador es casado
+  // (sea cual sea el régimen) se piden los documentos de su cónyuge. Solo
+  // aparecen cuando aplica: src/lib/conyuge.ts los abre y los cierra según el
+  // estado civil capturado en Personas. Los sube cada quien desde su link, por
+  // eso van en el bloque de su lado (A vendedor, B comprador).
+  {
+    numero: 34, bloque: "A", bloqueNombre: A, nombre: "INE del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "La credencial de elector de tu esposa o esposo, por los dos lados.",
+  },
+  {
+    numero: 35, bloque: "A", bloqueNombre: A, nombre: "CURP del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "La CURP de tu esposa o esposo. Se descarga gratis en gob.mx/curp.",
+  },
+  {
+    numero: 36, bloque: "A", bloqueNombre: A, nombre: "RFC / situación fiscal del cónyuge",
+    loSubeInvitado: true, dondeSeTramita: "SAT",
+    ayudaInvitado: "La Constancia de Situación Fiscal de tu esposa o esposo. Se saca en el portal del SAT.",
+  },
+  {
+    numero: 37, bloque: "A", bloqueNombre: A, nombre: "Acta de nacimiento del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "El acta de nacimiento de tu esposa o esposo. Sirve la de gob.mx.",
+  },
+  {
+    numero: 38, bloque: "B", bloqueNombre: B, nombre: "Acta de matrimonio",
+    loSubeInvitado: true,
+    notasAyuda: "Solo si el comprador es casado. Se abre sola al capturarlo en Personas.",
+    ayudaInvitado: "Tu acta de matrimonio. Sirve la copia certificada o la de gob.mx.",
+  },
+  {
+    numero: 39, bloque: "B", bloqueNombre: B, nombre: "INE del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "La credencial de elector de tu esposa o esposo, por los dos lados.",
+  },
+  {
+    numero: 40, bloque: "B", bloqueNombre: B, nombre: "CURP del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "La CURP de tu esposa o esposo. Se descarga gratis en gob.mx/curp.",
+  },
+  {
+    numero: 41, bloque: "B", bloqueNombre: B, nombre: "RFC / situación fiscal del cónyuge",
+    loSubeInvitado: true, dondeSeTramita: "SAT",
+    ayudaInvitado: "La Constancia de Situación Fiscal de tu esposa o esposo. Se saca en el portal del SAT.",
+  },
+  {
+    numero: 42, bloque: "B", bloqueNombre: B, nombre: "Acta de nacimiento del cónyuge",
+    loSubeInvitado: true,
+    ayudaInvitado: "El acta de nacimiento de tu esposa o esposo. Sirve la de gob.mx.",
+  },
 ];
 
 /** Lo que le toca subir al vendedor desde su link. */

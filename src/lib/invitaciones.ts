@@ -97,14 +97,27 @@ export async function validarToken(token: string) {
     return { ok: false as const, motivo: "expirada" as const };
   }
 
-  // Solo lo que le toca a ESTA persona: su bloque, y solo lo que sube el
-  // invitado. Los trámites municipales y el dinero no existen para él.
-  const bloques = invitacion.bloquesPermitidos.split(",").map((b) => b.trim());
-  const tramites = invitacion.propiedad.tramites.filter(
-    (t) => bloques.includes(t.catalogo.bloque) && t.catalogo.loSubeInvitado
-  );
-
+  const tramites = tramitesDelInvitado(invitacion.propiedad.tramites, invitacion.bloquesPermitidos);
   return { ok: true as const, invitacion, tramites };
+}
+
+/**
+ * Lo que le toca subir a ESTA persona: su bloque, solo lo que sube el
+ * invitado, y nada en "no aplica" — así un soltero no ve los documentos del
+ * cónyuge y lo que Erick descartó a mano deja de pedírsele. Los trámites
+ * municipales y el dinero no existen para él. Una sola regla para el portal
+ * y para Recordatorios: si difirieran, contarían distinto lo que falta.
+ */
+export function tramitesDelInvitado<
+  T extends { estado: string; catalogo: { bloque: string; loSubeInvitado: boolean } },
+>(tramites: T[], bloquesPermitidos: string): T[] {
+  const bloques = bloquesPermitidos.split(",").map((b) => b.trim());
+  return tramites.filter(
+    (t) =>
+      bloques.includes(t.catalogo.bloque) &&
+      t.catalogo.loSubeInvitado &&
+      t.estado !== "no_aplica"
+  );
 }
 
 export type InvitacionValida = Extract<

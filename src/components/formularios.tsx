@@ -301,7 +301,7 @@ export function FormaNuevaPropiedad() {
         <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
           {pendiente ? "Creando…" : "Crear propiedad"}
         </button>
-        <span className="text-xs text-tenue">Se crea con su expediente de 34 trámites vacío.</span>
+        <span className="text-xs text-tenue">Se crea con su expediente de trámites vacío.</span>
       </div>
 
       {estado?.ok === false ? (

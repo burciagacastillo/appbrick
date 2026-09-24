@@ -23,7 +23,7 @@ viendo links a tu tablero de costos — ya pasó una vez.
 
 ## La idea en una frase
 
-Una **Propiedad** tiene un **expediente de 34 trámites**, una **bitácora de gastos**
+Una **Propiedad** tiene un **expediente de 42 trámites** (del 34 al 42, los del cónyuge, solo si aplican), una **bitácora de gastos**
 (con quién pagó), unos **actores**, y ahora también una **ficha pública**.
 
 ## Stack
@@ -82,7 +82,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 158 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 178 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -97,6 +97,8 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `subida.test.ts` | Que la sala de espera (`_entrantes/`) no sirva para pedir el archivo de otro, y que un documento no se duplique |
 | `paquetes.test.ts` | El paquete del avalúo: orden del valuador, sin rechazados, solo el "a" en municipales, y que un PDF dañado no tumbe el paquete |
 | `slug.test.ts` | Que el id de una propiedad nueva no choque con otra ni con `/propiedades/nueva` |
+| `buscar-expediente.test.ts` | El buscador de la ficha con los nombres reales: "zoni", "constancias de zonificacion", "30"; y que "Bonificación" ya no exista |
+| `conyuge.test.ts` | Documentos del cónyuge: se abren si es casado, se cierran si no, nunca se cierra lo que ya avanzó, y el link no pide lo que no aplica |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -184,14 +186,14 @@ cuando el archivo lo sube un comprador desde su celular
 ```
 21a - Constancia de zonificacion Sierra la Escondida.pdf
  │└─ a = documento, b = orden de cobro, c = comprobante de pago
- └── número del catálogo (1-34)
+ └── número del catálogo (1-42)
 ```
 
 Reglas que ya costaron un bug cada una:
 
 - El `a/b/c` **solo** significa documento/orden/pago en los municipales (20-24,
   los que tienen `requierePago`). En el 30 (escritura) `b` es la carátula.
-- Solo se aceptan números 1-34 y 90-99 (extras). El patrón exige `" - "` con
+- Solo se aceptan números 1-42 y 90-99 (extras). El patrón exige `" - "` con
   espacios para que `2026-08-31_Estado de cuenta.pdf` no se lea como trámite 202.
 - **En `notas` solo va lo que no se puede volver a deducir.** Las conclusiones
   derivadas se calculan al pintar; guardadas quedan rancias.
@@ -250,7 +252,7 @@ link temporal. Solo admin, con bitácora.
 ## Alta de propiedades
 
 Desde la app: **Propiedades → Nueva propiedad** (o **Crear** arriba). Pide lo
-básico y crea la propiedad con sus 34 trámites en "falta" en una sola
+básico y crea la propiedad con todos sus trámites en "falta" en una sola
 operación. El id sale del nombre (`idUnico()` en `lib/slug.ts`) porque es la
 liga de sus páginas; si choca se le agrega `-2`, y nunca puede ser `nueva`
 (taparía la página de alta). `prod:sembrar` sigue sirviendo para las que
@@ -266,13 +268,57 @@ etiqueta (`escriturando` se lee "En firma"): renombrar obliga a migrar datos.
 Solo `concluida` y `cancelada` tienen lógica atada. La ficha de la propiedad
 tiene la línea de fases: un toque la mueve y queda en bitácora.
 
-## El catálogo de 34
+## La ficha de una propiedad (desde el 24/09/2026)
+
+Pedido de Erick: que sea MUY fácil desde que entra. De arriba abajo:
+
+1. **Datos clave** (`components/datos-clave.tsx`): comprador y vendedor con
+   NSS y número de crédito, cada uno con botón de copiar, y la **nota rápida**
+   (el mismo campo `notas` de la pestaña Datos) también con copiar. La persona
+   completa trae la contraseña de Infonavit cifrada: a los componentes de
+   cliente solo se les pasa el texto que copian.
+2. **Buscador** (`lib/buscar-expediente.ts`): filtra los trámites por pedazos
+   de palabra sin acentos y abre el archivo. La lógica vive fuera del
+   componente para poder probarla; quita acentos por código de carácter, no
+   con un regex de `\u` (ver la memoria de escapes).
+3. Línea de fases, números, pestañas.
+
+**Expediente mínimo:** nombre, está / no está (✗ ? ✓ —), Abrir y Subir.
+Se quitaron "Detalles" (responsable, fecha límite, costo), la línea de dónde
+se tramita y el aviso "está en tu computadora". El comentario solo aparece
+con "?" (revisar): `guardarNotaTramite`. Los campos quitados siguen en la base.
+
+## El catálogo de 42
+
+El 34 "Bonificación" se quitó el 24/09/2026: fue un error de dictado (lo que
+Erick quería es la constancia de zonificación, que ya es el 21). La migración
+`20260924000000_quitar_tramite_34` primero **desliga** los documentos
+(Documento → Tramite es ON DELETE CASCADE: borrar el trámite los borraría) y
+luego borra — filtrando por NOMBRE, porque el número 34 se reutilizó.
+
+**Documentos del cónyuge (34-42)**, regla de Erick del 24/09/2026: si el
+vendedor o el comprador es **casado, sea cual sea el régimen**, se piden los
+de su cónyuge. 34-37 cónyuge del vendedor (INE, CURP, constancia fiscal, acta
+de nacimiento); 38 acta de matrimonio del comprador; 39-42 su cónyuge. El acta
+del vendedor sigue siendo el 6. Van en el bloque de cada lado (A / B) para que
+cada quien los suba desde su link.
+
+`src/lib/conyuge.ts` los abre y cierra solo según el estado civil capturado en
+Personas (`sincronizarConyuge`, llamado al guardar/vincular/desvincular una
+persona, al invitar y al crear la propiedad). "Cerrado" = `no_aplica`: el
+expediente y el buscador los esconden y `tramitesDelInvitado()` no se los pide
+al link. **Nunca cierra lo que ya tiene archivo o avanzó.** Unión libre cuenta
+como no casado. La migración `20260924010000_documentos_conyuge` los crea en
+producción con los mismos textos que `catalogo.ts`.
+
+En la UI, "bienes mancomunados" se lee **Sociedad conyugal** (así le dice
+Erick); el id guardado sigue siendo `bienes_mancomunados`.
 
 Numeración confirmada por Erick: **1 = Poder, 2 = INE**. Vive en
 `prisma/catalogo.ts`, que es fuente de verdad — re-sembrar siempre deja la base
 igual al archivo. Banderas que importan:
 
-- `loSubeInvitado` — lo sube el comprador o el vendedor (14 de 34)
+- `loSubeInvitado` — lo sube el comprador o el vendedor (23 de 42)
 - `esDato` — no es archivo, se captura en campos: NSS y las dos referencias
 - `vigenciaDias` — recibos y avalúos caducan; una escritura no
 - `ayudaInvitado` — la explicación en lenguaje llano para alguien que nunca
@@ -289,7 +335,7 @@ gana sobre `.env`, y se niega si apunta a localhost):
 ```bash
 npm run prod:verificar   # revisa todo; lo más importante: que el bucket sea PRIVADO
 npm run prod:migrar      # tablas
-npm run prod:sembrar     # catálogo de 34 + las propiedades de sus carpetas
+npm run prod:sembrar     # catálogo de trámites + las propiedades de sus carpetas
 npm run prod:usuario     # su cuenta
 ```
 
@@ -299,7 +345,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 158 pruebas
+npm test           # las 178 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

@@ -8,6 +8,7 @@ import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { crearPrisma } from "../../src/lib/db";
 import { cifrar, descifrar } from "../../src/lib/cripto";
+import { CATALOGO } from "../../prisma/catalogo";
 
 type Resultado = { ok: boolean; titulo: string; detalle?: string };
 const resultados: Resultado[] = [];
@@ -38,11 +39,15 @@ async function main() {
     await db.$queryRaw`SELECT 1`;
     anotar(true, "Conexión a la base", new URL(process.env.DATABASE_URL!).hostname);
 
+    // Se compara contra el catálogo del código, no contra un número fijo: el
+    // 24/09/2026 pasó de 34 a 33 (se quitó "Bonificación").
     const catalogo = await db.tramiteCatalogo.count();
     anotar(
-      catalogo === 34,
-      "Catálogo de 34 trámites",
-      catalogo === 34 ? "Completo" : `Hay ${catalogo}. Corre: npm run prod:sembrar`
+      catalogo === CATALOGO.length,
+      `Catálogo de ${CATALOGO.length} trámites`,
+      catalogo === CATALOGO.length
+        ? "Completo"
+        : `Hay ${catalogo}. Corre: npm run prod:migrar y npm run prod:sembrar`
     );
 
     const admins = await db.usuario.findMany({ where: { rol: "admin", activo: true } });

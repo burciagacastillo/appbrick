@@ -5,6 +5,9 @@ import { ChevronLeft } from "lucide-react";
 import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO, Stat } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
 import { LineaDeFases } from "@/components/fases";
+import { DatosClave } from "@/components/datos-clave";
+import { esDeConyuge } from "@/lib/conyuge";
+import { BuscadorExpediente, type ItemBuscable } from "@/components/buscador-expediente";
 import { Paquetes } from "@/components/paquetes";
 import { TablaGastos } from "@/components/gastos";
 import { Publicacion } from "@/components/publicacion";
@@ -37,6 +40,30 @@ export default async function DetallePropiedad({
   const p = await obtenerPropiedad(id);
   if (!p) notFound();
 
+  // Para el buscador: solo lo necesario, nada de la persona ni de dinero.
+  // (Los del cónyuge que no aplican no existen para el buscador, igual que en el expediente.)
+  const visibles = p.tramites.filter(
+    (t) => !(esDeConyuge(t.catalogo.numero) && t.estado === "no_aplica" && t.documentos.length === 0)
+  );
+  const buscables: ItemBuscable[] = visibles.map((t) => {
+    const vivos = t.documentos.filter((d) => d.estado !== "rechazado");
+    return {
+      id: t.id,
+      numero: t.catalogo.numero,
+      nombre: t.catalogo.nombre,
+      estado: t.estado,
+      esDato: t.catalogo.esDato,
+      documentos: vivos.map((d, i) => ({
+        id: d.id,
+        etiqueta: d.subTipo
+          ? { a: "Documento", b: "Orden de cobro", c: "Pago" }[d.subTipo] ?? "Abrir"
+          : vivos.length > 1
+            ? `Abrir ${i + 1}`
+            : "Abrir",
+      })),
+    };
+  });
+
   return (
     <div className="space-y-8">
       <div>
@@ -56,8 +83,12 @@ export default async function DetallePropiedad({
             {[p.direccion, p.colonia, p.ciudad].filter(Boolean).join(", ")}
           </p>
         ) : null}
-        {p.notas ? <p className="mt-2 max-w-2xl text-sm text-tenue">{p.notas}</p> : null}
       </div>
+
+      {/* Lo más consultado, arriba: comprador, vendedor, NSS, crédito y la
+          nota rápida. Y un buscador para no bajar por todo el expediente. */}
+      <DatosClave propiedad={p} />
+      <BuscadorExpediente propiedadId={p.id} items={buscables} />
 
       <LineaDeFases propiedadId={p.id} actual={p.etapa} />
 

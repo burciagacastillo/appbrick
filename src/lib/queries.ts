@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { tramitesDelInvitado } from "./invitaciones";
 
 /** Cuántos trámites del expediente van, sin contar los marcados "no aplica". */
 export type Progreso = {
@@ -37,7 +38,7 @@ function armarProgreso(porEstado: Map<string, number>): Progreso {
  * Listado de propiedades con su avance y su dinero.
  *
  * Los conteos y las sumas los hace la base, no JavaScript. Antes se traían
- * los 34 trámites y todos los gastos de CADA propiedad solo para contarlos:
+ * todos los trámites y todos los gastos de CADA propiedad solo para contarlos:
  * con 50 propiedades son ~1,700 filas cargadas a memoria para sacar un
  * porcentaje.
  */
@@ -347,10 +348,7 @@ async function invitacionesActivas() {
  * puede probar sin montar una pantalla.
  */
 function armarRecordatorio(i: InvitacionConTodo, ahora: Date) {
-  const bloques = i.bloquesPermitidos.split(",").map((b) => b.trim());
-  const suyos = i.propiedad.tramites.filter(
-    (t) => bloques.includes(t.catalogo.bloque) && t.catalogo.loSubeInvitado
-  );
+  const suyos = tramitesDelInvitado(i.propiedad.tramites, i.bloquesPermitidos);
 
   const entregados = suyos.filter((t) =>
     t.documentos.some((d) => d.estado !== "rechazado")

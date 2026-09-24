@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { crearInvitacion } from "@/lib/invitaciones";
+import { sincronizarConyuge } from "@/lib/conyuge";
 import {
   validar,
   validarOTronar,
@@ -135,6 +136,9 @@ export async function invitarPersona(
     update: {},
     create: { propiedadId, personaId: persona.id, rol },
   });
+
+  // Si ya estaba capturada como casada, su link debe pedir lo del cónyuge.
+  await sincronizarConyuge(propiedadId);
 
   await crearInvitacion({
     propiedadId,

@@ -41,14 +41,13 @@ export const ESTADOS_TRAMITE = [
 export type EstadoTramiteId = (typeof ESTADOS_TRAMITE)[number]["id"];
 
 export const BLOQUES = [
-  { id: "A", nombre: "Vendedor", rango: "1-7" },
-  { id: "B", nombre: "Comprador / Derechohabiente", rango: "8-15" },
+  { id: "A", nombre: "Vendedor", rango: "1-7 · 34-37" },
+  { id: "B", nombre: "Comprador / Derechohabiente", rango: "8-15 · 38-42" },
   { id: "C", nombre: "Solicitudes y referencias", rango: "16-19" },
   { id: "D", nombre: "Trámites municipales del inmueble", rango: "20-24" },
   { id: "E", nombre: "Recibos", rango: "25-27" },
   { id: "F", nombre: "Inmueble: legal y valor", rango: "28-30" },
   { id: "G", nombre: "Avalúo y crédito", rango: "31-33" },
-  { id: "H", nombre: "Trámites", rango: "34" },
 ] as const;
 
 // --- Dinero -----------------------------------------------------------------
@@ -161,7 +160,7 @@ export const ESTADOS_CIVILES = [
  * un cierre cuando se descubre tarde.
  */
 export const REGIMENES = [
-  { id: "bienes_mancomunados", label: "Bienes mancomunados", nota: "El cónyuge firma" },
+  { id: "bienes_mancomunados", label: "Sociedad conyugal", nota: "Bienes mancomunados: el cónyuge firma" },
   { id: "separacion_de_bienes", label: "Separación de bienes", nota: "El cónyuge no firma" },
 ] as const;
 

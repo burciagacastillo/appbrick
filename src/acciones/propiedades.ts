@@ -7,6 +7,7 @@ import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { etapa as buscarEtapa } from "@/lib/constants";
 import { idUnico } from "@/lib/slug";
+import { esDeConyuge } from "@/lib/conyuge";
 import {
   validar,
   validarOTronar,
@@ -14,7 +15,8 @@ import {
   EsquemaNuevaPropiedad,
   EsquemaEstadoTramite,
   EsquemaSubdoc,
-  EsquemaDetalleTramite,
+  EsquemaNotaTramite,
+  EsquemaNotaRapida,
   EsquemaGasto,
   EsquemaPropiedad,
 } from "@/lib/esquemas";
@@ -100,22 +102,41 @@ export async function alternarSubdoc(formData: FormData) {
   refrescarPropiedad(actual.propiedadId);
 }
 
-/** Guarda responsable, fecha límite, costo y notas de un trámite. */
-export async function guardarDetalleTramite(formData: FormData) {
+/**
+ * El comentario de un trámite marcado con "?" (revisar): qué hay que revisar.
+ * Reemplaza a "Detalles" (responsable, fecha límite, costo), que Erick quitó
+ * el 24/09/2026 porque no lo usaba. Esos campos siguen en la base.
+ */
+export async function guardarNotaTramite(formData: FormData) {
   await exigirAdmin();
-  const d = validarOTronar(EsquemaDetalleTramite, formData);
+  const d = validarOTronar(EsquemaNotaTramite, formData);
 
   const tramite = await db.tramite.update({
     where: { id: d.tramiteId },
-    data: {
-      responsable: d.responsable,
-      fechaLimite: d.fechaLimite,
-      costo: d.costo,
-      notas: d.notas,
-    },
+    data: { notas: d.notas },
   });
 
   refrescarPropiedad(tramite.propiedadId);
+}
+
+export type ResultadoNotaRapida = { ok: true } | { ok: false; error: string } | null;
+
+/** La nota rápida de arriba de la ficha ("darle prioridad porque…"). */
+export async function guardarNotaRapida(
+  _previo: ResultadoNotaRapida,
+  formData: FormData
+): Promise<ResultadoNotaRapida> {
+  await exigirAdmin();
+  const v = validar(EsquemaNotaRapida, formData);
+  if (!v.ok) return { ok: false, error: v.error };
+
+  await db.propiedad.update({
+    where: { id: v.datos.propiedadId },
+    data: { notas: v.datos.notas },
+  });
+
+  refrescarPropiedad(v.datos.propiedadId);
+  return { ok: true };
 }
 
 export type ResultadoGasto = { ok: true } | { ok: false; error: string };
@@ -220,7 +241,7 @@ export async function guardarPropiedad(formData: FormData) {
 export type ResultadoNuevaPropiedad = { ok: false; error: string } | null;
 
 /**
- * Da de alta una propiedad con su expediente completo (los 34 trámites en
+ * Da de alta una propiedad con su expediente completo (todos los trámites en
  * "falta"), igual que las que vinieron de tus carpetas. El id sale del nombre
  * ("Praderas 12" → "praderas-12") porque es la liga de sus páginas; si ya
  * existe, se le agrega un número.
@@ -239,9 +260,9 @@ export async function crearPropiedad(
     Boolean(await db.propiedad.findUnique({ where: { id: candidato }, select: { id: true } }))
   );
 
-  const catalogo = await db.tramiteCatalogo.findMany({ select: { id: true } });
+  const catalogo = await db.tramiteCatalogo.findMany({ select: { id: true, numero: true } });
 
-  // Una sola operación: o se crea con sus 34 trámites, o no se crea.
+  // Una sola operación: o se crea con todos sus trámites, o no se crea.
   await db.propiedad.create({
     data: {
       id,
@@ -253,7 +274,13 @@ export async function crearPropiedad(
       etapa: d.etapa,
       valorCompra: d.valorCompra,
       notas: d.notas,
-      tramites: { create: catalogo.map((c) => ({ catalogoId: c.id, estado: "falta" })) },
+      // Los del cónyuge nacen cerrados: todavía no hay nadie capturado como casado.
+      tramites: {
+        create: catalogo.map((c) => ({
+          catalogoId: c.id,
+          estado: esDeConyuge(c.numero) ? "no_aplica" : "falta",
+        })),
+      },
     },
   });
 

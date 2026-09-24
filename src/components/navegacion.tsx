@@ -39,7 +39,7 @@ const CREAR = [
   {
     href: "/propiedades/nueva",
     label: "Nueva propiedad",
-    detalle: "Con su expediente de 34 trámites",
+    detalle: "Con su expediente de trámites",
     icono: HousePlus,
   },
   {

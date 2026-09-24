@@ -1,6 +1,6 @@
 // Carga inicial de AppBrick.
 //
-// Siembra el catálogo de 34 trámites y da de alta las propiedades pendientes
+// Siembra el catálogo de trámites y da de alta las propiedades pendientes
 // leyendo directamente tus carpetas. El estado del expediente NO se captura a
 // mano: se deduce de los nombres de archivo con src/lib/escaner.ts.
 //
@@ -13,6 +13,7 @@ import { CATALOGO } from "./catalogo";
 import { escanearCarpeta } from "../src/lib/escaner";
 import { listarArchivosDe } from "../src/lib/almacen";
 import { crearPrisma } from "../src/lib/db";
+import { sincronizarConyuge } from "../src/lib/conyuge";
 
 const prisma = crearPrisma();
 
@@ -159,12 +160,15 @@ async function sembrarPropiedades() {
       });
     }
 
+    // Los documentos del cónyuge se cierran si nadie está capturado como casado.
+    await sincronizarConyuge(propiedad.id, prisma);
+
     const completos = escaneo.tramites.filter((t) => t.estado === "completo").length;
     const revisar = escaneo.tramites.filter((t) => t.estado === "revisar").length;
     console.log(
       `  ${p.nombre.padEnd(22)} ${archivos.length.toString().padStart(2)} archivos → ` +
         `${completos} completos, ${revisar} por revisar, ` +
-        `${34 - escaneo.tramites.length} sin archivo` +
+        `${CATALOGO.length - escaneo.tramites.length} sin archivo` +
         (escaneo.sinClasificar.length
           ? ` · ${escaneo.sinClasificar.length} sin numerar`
           : "")

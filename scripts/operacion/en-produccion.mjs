@@ -3,7 +3,7 @@
 //
 //   npm run prod:verificar   → revisa que todo esté bien configurado
 //   npm run prod:migrar      → crea o actualiza las tablas
-//   npm run prod:sembrar     → carga el catálogo de 34 y tus 4 propiedades
+//   npm run prod:sembrar     → carga el catálogo de trámites y tus 4 propiedades
 //   npm run prod:usuario     → crea tu cuenta o cambia la contraseña
 //
 // Lee .env.produccion (fuera de git). Sus valores GANAN sobre los de .env:

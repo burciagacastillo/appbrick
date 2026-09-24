@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // celular, en la calle, y que nunca ha tramitado un crédito.
 //
 // Reglas que gobiernan esta pantalla:
-//   · Solo ve SUS documentos, nunca los 34 ni nada de dinero.
+//   · Solo ve SUS documentos, nunca el expediente completo ni nada de dinero.
 //   · Nada de jerga: "Constancia de Situación Fiscal" viene con su explicación.
 //   · Un toque para subir. Elige archivo y se manda solo.
 

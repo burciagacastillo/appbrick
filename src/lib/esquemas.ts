@@ -101,11 +101,15 @@ export const EsquemaSubdoc = z.object({
   campo: z.enum(["docRecibido", "ordenDeCobro", "pagoComprobado"]),
 });
 
-export const EsquemaDetalleTramite = z.object({
+/** El comentario de un trámite en "revisar" (lo único que quedó de "Detalles"). */
+export const EsquemaNotaTramite = z.object({
   tramiteId: id,
-  responsable: opcional,
-  fechaLimite: fechaOpcional,
-  costo: dineroOpcional,
+  notas: opcionalLargo,
+});
+
+/** La nota rápida de la propiedad, arriba de su ficha. */
+export const EsquemaNotaRapida = z.object({
+  propiedadId: id,
   notas: opcionalLargo,
 });
 

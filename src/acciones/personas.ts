@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { cifrar, descifrar } from "@/lib/cripto";
+import { sincronizarConyuge } from "@/lib/conyuge";
 import {
   validar,
   EsquemaPersona,
@@ -90,6 +91,17 @@ export async function guardarPersona(
 
   // El trámite 13 (NSS y contraseña) depende de estos datos.
   await sincronizarTramitesDeDatos(d.propiedadId);
+
+  // El estado civil abre o cierra los documentos del cónyuge — en TODAS las
+  // propiedades donde esta persona compra o vende, no solo en la que se editó.
+  const vinculos = await db.propiedadPersona.findMany({
+    where: { personaId: d.personaId },
+    select: { propiedadId: true },
+  });
+  for (const propiedadId of new Set(vinculos.map((x) => x.propiedadId))) {
+    await sincronizarConyuge(propiedadId);
+    refrescar(propiedadId);
+  }
 
   refrescar(d.propiedadId);
   return { ok: true };
@@ -261,6 +273,9 @@ export async function vincularPersona(
     data: { propiedadId, personaId: persona.id, rol },
   });
 
+  // Si ya la teníamos capturada como casada, se abren los del cónyuge.
+  await sincronizarConyuge(propiedadId);
+
   refrescar(propiedadId);
   return { ok: true };
 }
@@ -273,6 +288,7 @@ export async function desvincularPersona(formData: FormData) {
   // Se quita de la propiedad, pero la persona sigue existiendo: sus datos
   // pueden estar ligados a otra operación.
   const vinculo = await db.propiedadPersona.delete({ where: { id } });
+  await sincronizarConyuge(vinculo.propiedadId);
   refrescar(vinculo.propiedadId);
 }
 

@@ -3,7 +3,7 @@
 // Tu convención (la que ya usas, no una nueva):
 //   "21a - Constancia de zonificacion Sierra la Escondida.pdf"
 //    │└─ a = el documento, b = orden de cobro, c = comprobante de pago
-//    └── número del catálogo (1-34)
+//    └── número del catálogo (1-42)
 //
 // Marcas como "(revisar)" dentro del nombre bajan el trámite a estado "revisar"
 // en vez de darlo por bueno. Archivos 90-99 son tus extras (contratos, planos
@@ -35,7 +35,7 @@ export type EstadoDerivado = {
 };
 
 export type ResultadoEscaneo = {
-  /** Trámites del catálogo 1-34 con estado deducido. */
+  /** Trámites del catálogo 1-42 con estado deducido. */
   tramites: EstadoDerivado[];
   /** Archivos 90-99: tus extras fuera del checklist. */
   extras: ArchivoParseado[];
@@ -58,9 +58,9 @@ export function parsearArchivo(archivo: string): ArchivoParseado | null {
   if (!m) return null;
 
   const numero = Number(m[1]);
-  // Solo aceptamos el catálogo (1-34) y tus extras (90-99). Cualquier otro
+  // Solo aceptamos el catálogo (1-42) y tus extras (90-99). Cualquier otro
   // número es coincidencia (fechas, folios) y no es un trámite.
-  const esCatalogo = numero >= 1 && numero <= 34;
+  const esCatalogo = numero >= 1 && numero <= 42;
   const esExtra = numero >= 90 && numero <= 99;
   if (!esCatalogo && !esExtra) return null;
 
