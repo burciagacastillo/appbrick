@@ -1,14 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { etapa as buscarEtapa } from "@/lib/constants";
+import { idUnico } from "@/lib/slug";
 import {
   validar,
   validarOTronar,
   EsquemaEtapa,
+  EsquemaNuevaPropiedad,
   EsquemaEstadoTramite,
   EsquemaSubdoc,
   EsquemaDetalleTramite,
@@ -208,4 +211,62 @@ export async function guardarPropiedad(formData: FormData) {
 
   refrescarPropiedad(d.propiedadId);
   revalidatePath("/casas");
+}
+
+// ---------------------------------------------------------------------------
+// Alta de propiedades
+// ---------------------------------------------------------------------------
+
+export type ResultadoNuevaPropiedad = { ok: false; error: string } | null;
+
+/**
+ * Da de alta una propiedad con su expediente completo (los 34 trámites en
+ * "falta"), igual que las que vinieron de tus carpetas. El id sale del nombre
+ * ("Praderas 12" → "praderas-12") porque es la liga de sus páginas; si ya
+ * existe, se le agrega un número.
+ */
+export async function crearPropiedad(
+  _previo: ResultadoNuevaPropiedad,
+  formData: FormData
+): Promise<ResultadoNuevaPropiedad> {
+  const usuario = await exigirAdmin();
+
+  const v = validar(EsquemaNuevaPropiedad, formData);
+  if (!v.ok) return { ok: false, error: v.error };
+  const d = v.datos;
+
+  const id = await idUnico(d.nombre, async (candidato) =>
+    Boolean(await db.propiedad.findUnique({ where: { id: candidato }, select: { id: true } }))
+  );
+
+  const catalogo = await db.tramiteCatalogo.findMany({ select: { id: true } });
+
+  // Una sola operación: o se crea con sus 34 trámites, o no se crea.
+  await db.propiedad.create({
+    data: {
+      id,
+      nombre: d.nombre,
+      direccion: d.direccion,
+      colonia: d.colonia,
+      ciudad: d.ciudad,
+      tipo: d.tipo,
+      etapa: d.etapa,
+      valorCompra: d.valorCompra,
+      notas: d.notas,
+      tramites: { create: catalogo.map((c) => ({ catalogoId: c.id, estado: "falta" })) },
+    },
+  });
+
+  await registrar({
+    tipoActor: "admin",
+    actor: usuario.nombre,
+    accion: "creo_propiedad",
+    entidad: "propiedad",
+    entidadId: id,
+    detalle: d.nombre,
+  });
+
+  revalidatePath("/propiedades");
+  revalidatePath("/");
+  redirect(`/propiedades/${encodeURIComponent(id)}`);
 }

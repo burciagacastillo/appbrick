@@ -125,6 +125,18 @@ export const EsquemaPropiedad = z.object({
   notas: opcionalLargo,
 });
 
+/** Alta de una propiedad desde la app. Lo demás se captura después en Datos. */
+export const EsquemaNuevaPropiedad = z.object({
+  nombre: textoCorto.min(1, "Ponle nombre a la propiedad"),
+  direccion: opcional,
+  colonia: opcional,
+  ciudad: textoCorto.optional().transform((v) => v || "Chihuahua"),
+  tipo: enumDe(TIPOS_PROPIEDAD),
+  etapa: enumDe(ETAPAS),
+  valorCompra: dineroOpcional,
+  notas: opcionalLargo,
+});
+
 export const EsquemaRechazo = z.object({
   documentoId: id,
   motivo: textoCorto

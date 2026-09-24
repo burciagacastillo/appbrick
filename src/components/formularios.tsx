@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useRef, useEffect } from "react";
-import { agregarGasto, type ResultadoGasto } from "@/acciones/propiedades";
+import {
+  agregarGasto,
+  crearPropiedad,
+  type ResultadoGasto,
+  type ResultadoNuevaPropiedad,
+} from "@/acciones/propiedades";
 import { rechazarDocumento, type ResultadoRechazo } from "@/acciones/documentos";
 import { invitarPersona, type ResultadoInvitar } from "@/acciones/equipo";
 import { BOTON_PRIMARIO, CLASE_CAMPO, Campo, ErrorCampo } from "./ui";
@@ -9,6 +14,8 @@ import {
   CATEGORIAS_GASTO,
   GRUPOS_GASTO,
   METODOS_PAGO,
+  ETAPAS,
+  TIPOS_PROPIEDAD,
 } from "@/lib/constants";
 
 // Formularios que pueden fallar por datos, no por un fallo del programa.
@@ -231,6 +238,77 @@ export function FormaInvitar({
         </span>
         {estado?.ok === false ? <ErrorCampo>{estado.error}</ErrorCampo> : null}
       </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Alta de propiedad: lo mínimo para arrancar. Valores de venta, presupuesto y
+ * lo demás se capturan después en la pestaña Datos, cuando se sepan.
+ */
+export function FormaNuevaPropiedad() {
+  const [estado, accion, pendiente] = useActionState<ResultadoNuevaPropiedad, FormData>(
+    crearPropiedad,
+    null
+  );
+
+  return (
+    <form action={accion} className="grid gap-4 px-6 pt-1 pb-6 sm:grid-cols-2">
+      <Campo etiqueta="Nombre" nota="Como la reconoces: “Praderas 12”, “Casa de Aldama”…" className="sm:col-span-2">
+        <input name="nombre" required autoFocus maxLength={200} className={CLASE_CAMPO} />
+      </Campo>
+
+      <Campo etiqueta="Dirección">
+        <input name="direccion" maxLength={200} className={CLASE_CAMPO} />
+      </Campo>
+      <Campo etiqueta="Colonia">
+        <input name="colonia" maxLength={200} className={CLASE_CAMPO} />
+      </Campo>
+      <Campo etiqueta="Ciudad">
+        <input name="ciudad" defaultValue="Chihuahua" maxLength={200} className={CLASE_CAMPO} />
+      </Campo>
+
+      <Campo etiqueta="Tipo">
+        <select name="tipo" defaultValue="casa" className={CLASE_CAMPO}>
+          {TIPOS_PROPIEDAD.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </Campo>
+
+      <Campo etiqueta="Fase">
+        <select name="etapa" defaultValue="adquisicion" className={CLASE_CAMPO}>
+          {ETAPAS.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.label}
+            </option>
+          ))}
+        </select>
+      </Campo>
+      <Campo etiqueta="Valor de compra" nota="Opcional">
+        <input type="number" step="0.01" min="0" name="valorCompra" className={`${CLASE_CAMPO} tabular`} />
+      </Campo>
+
+      <Campo etiqueta="Notas" nota="Opcional: vendedor, comprador, de dónde salió…" className="sm:col-span-2">
+        <textarea name="notas" rows={3} maxLength={4000} className={CLASE_CAMPO} />
+      </Campo>
+
+      <div className="flex flex-wrap items-center gap-3 pt-1 sm:col-span-2">
+        <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
+          {pendiente ? "Creando…" : "Crear propiedad"}
+        </button>
+        <span className="text-xs text-tenue">Se crea con su expediente de 34 trámites vacío.</span>
+      </div>
+
+      {estado?.ok === false ? (
+        <div className="sm:col-span-2">
+          <ErrorCampo>{estado.error}</ErrorCampo>
+        </div>
+      ) : null}
     </form>
   );
 }

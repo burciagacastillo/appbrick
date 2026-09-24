@@ -27,6 +27,7 @@ export type Accion =
   | "reinicio_2fa"
   | "corrigio_fecha"
   | "cambio_etapa"
+  | "creo_propiedad"
   | "vio_expediente";
 
 export type Entidad =

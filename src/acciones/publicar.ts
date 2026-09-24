@@ -11,19 +11,9 @@ import {
   validarArchivo,
   limpiarNombre,
 } from "@/lib/almacen";
+import { aSlug } from "@/lib/slug";
 
 // Lo que decide qué ve el mundo. Solo admin.
-
-/** Convierte un título en slug de URL: "Praderas del Sur 1" → "praderas-del-sur-1" */
-function aSlug(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
 
 export type ResultadoFoto = { ok: true; cuantas: number } | { ok: false; error: string };
 

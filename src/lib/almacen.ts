@@ -102,7 +102,7 @@ export function nombrarConConvencion(
   extension: string
 ): string {
   const sinAcentos = (s: string) =>
-    s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   const base = limpiarNombre(
     `${numero}${subTipo ?? ""} - ${sinAcentos(nombreTramite)} ${sinAcentos(nombrePropiedad)}`

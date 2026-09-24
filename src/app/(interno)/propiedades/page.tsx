@@ -1,7 +1,8 @@
-import { Building2 } from "lucide-react";
+import Link from "next/link";
+import { Building2, HousePlus } from "lucide-react";
 import { db } from "@/lib/db";
 import { listarPropiedades } from "@/lib/queries";
-import { Card, Vacio, Encabezado } from "@/components/ui";
+import { Card, Vacio, Encabezado, BOTON_PRIMARIO } from "@/components/ui";
 import { TarjetaPropiedad } from "@/components/tarjeta-propiedad";
 import { ETAPAS } from "@/lib/constants";
 import { exigirAdmin } from "@/lib/permisos";
@@ -33,12 +34,21 @@ export default async function Propiedades() {
 
   return (
     <div className="space-y-12">
-      <Encabezado titulo="Propiedades" descripcion={`${propiedades.length} en total`} />
+      <Encabezado
+        titulo="Propiedades"
+        descripcion={`${propiedades.length} en total`}
+        acciones={
+          <Link href="/propiedades/nueva" className={BOTON_PRIMARIO}>
+            <HousePlus className="h-4 w-4" strokeWidth={1.75} />
+            Nueva propiedad
+          </Link>
+        }
+      />
 
       {grupos.length === 0 ? (
         <Card>
           <Vacio icono={<Building2 className="h-6 w-6" strokeWidth={1.5} />} titulo="Sin propiedades">
-            Corre <code>npm run db:seed</code> para traerlas de tus carpetas.
+            Da de alta la primera con el botón “Nueva propiedad”.
           </Vacio>
         </Card>
       ) : (

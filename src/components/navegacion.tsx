@@ -8,6 +8,7 @@ import {
   Building2,
   FileCheck2,
   FolderOpen,
+  HousePlus,
   LayoutGrid,
   Link2,
   Plus,
@@ -35,6 +36,12 @@ const ADMIN: Pestana[] = [
 const AYUDANTE: Pestana[] = [{ href: "/ayudante", label: "Documentos", icono: FolderOpen }];
 
 const CREAR = [
+  {
+    href: "/propiedades/nueva",
+    label: "Nueva propiedad",
+    detalle: "Con su expediente de 34 trámites",
+    icono: HousePlus,
+  },
   {
     href: "/gastos#registrar",
     label: "Registrar gasto",

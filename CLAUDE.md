@@ -82,7 +82,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 152 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 158 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -96,6 +96,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `egresos.test.ts` | La gráfica de /gastos: meses en UTC (un gasto del día 1 no se brinca al mes anterior) y meses vacíos en cero |
 | `subida.test.ts` | Que la sala de espera (`_entrantes/`) no sirva para pedir el archivo de otro, y que un documento no se duplique |
 | `paquetes.test.ts` | El paquete del avalúo: orden del valuador, sin rechazados, solo el "a" en municipales, y que un PDF dañado no tumbe el paquete |
+| `slug.test.ts` | Que el id de una propiedad nueva no choque con otra ni con `/propiedades/nueva` |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -246,6 +247,15 @@ municipales, aprobados antes que pendientes, varias hojas en orden de subida.
 carta), guarda el resultado en `propiedades/<id>/paquetes/` y lo entrega por
 link temporal. Solo admin, con bitácora.
 
+## Alta de propiedades
+
+Desde la app: **Propiedades → Nueva propiedad** (o **Crear** arriba). Pide lo
+básico y crea la propiedad con sus 34 trámites en "falta" en una sola
+operación. El id sale del nombre (`idUnico()` en `lib/slug.ts`) porque es la
+liga de sus páginas; si choca se le agrega `-2`, y nunca puede ser `nueva`
+(taparía la página de alta). `prod:sembrar` sigue sirviendo para las que
+vienen de tus carpetas de Windows.
+
 ## Fases de una propiedad
 
 Definidas por Erick el 23/09/2026 en `ETAPAS` (`lib/constants.ts`): adquisición,
@@ -289,7 +299,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 152 pruebas
+npm test           # las 158 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente
