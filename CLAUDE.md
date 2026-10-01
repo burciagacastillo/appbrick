@@ -95,7 +95,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 183 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 185 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -112,6 +112,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `slug.test.ts` | Que el id de una propiedad nueva no choque con otra ni con `/propiedades/nueva` |
 | `buscar-expediente.test.ts` | El buscador de la ficha con los nombres reales: "zoni", "constancias de zonificacion", "30"; y que "Bonificación" ya no exista |
 | `conyuge.test.ts` | Documentos del cónyuge: se abren si es casado, se cierran si no, nunca se cierra lo que ya avanzó, y el link no pide lo que no aplica |
+| `seguridad-bd.test.ts` | Que toda tabla tenga RLS: sin eso, la API pública de Supabase la deja leer, cambiar y borrar a cualquiera |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -172,6 +173,16 @@ el límite de Supabase. Y el Postgres local de `prisma dev` **solo acepta una
 conexión en total**: si tienes `npm run dev` prendido mientras corres
 `npm test`, las pruebas fallan con "Server has closed the connection". Apaga
 uno. Por lo mismo, las pruebas usan el `db` compartido, nunca `crearPrisma()`.
+
+**La base, cerrada a la API de Supabase** (desde el 01/10/2026). Supabase
+publica por internet toda tabla de `public` (PostgREST, con la llave
+"anon"). La app no usa esa API: entra por Prisma como `postgres`, que brinca
+RLS. Hasta esa fecha las 16 tablas estaban abiertas (aviso de Supabase del
+27/09: `rls_disabled_in_public`). La migración
+`20261001000000_cerrar_api_supabase` prende RLS sin políticas en todas y les
+quita los permisos a `anon` y `authenticated`, también para tablas futuras.
+**Toda tabla nueva lleva `ENABLE ROW LEVEL SECURITY` en su migración**:
+`seguridad-bd.test.ts` falla si no, y `prod:verificar` lo revisa en producción.
 
 **Dos direcciones de base en Supabase.** `DATABASE_URL` = Transaction pooler
 (6543), la usa la app. `DIRECT_URL` = Session pooler (5432), la usan las
@@ -358,7 +369,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 183 pruebas
+npm test           # las 185 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

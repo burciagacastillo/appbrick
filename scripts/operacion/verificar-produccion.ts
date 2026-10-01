@@ -50,6 +50,55 @@ async function main() {
         : `Hay ${catalogo}. Corre: npm run prod:migrar y npm run prod:sembrar`
     );
 
+    // Supabase abre la base a internet por su API (PostgREST) con la llave
+    // "anon". La app no usa esa API, pero el 27/09/2026 Supabase avisó que
+    // las tablas estaban abiertas por ahí. Cada tabla debe tener RLS y anon y
+    // authenticated no deben tener permisos (migración 20261001000000).
+    const sinCandado = await db.$queryRaw<{ tabla: string }[]>`
+      SELECT c.relname AS tabla FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity
+      ORDER BY 1`;
+    const hayAnon = await db.$queryRaw<{ n: bigint }[]>`
+      SELECT count(*) AS n FROM pg_roles WHERE rolname IN ('anon', 'authenticated')`;
+    const conPermisos =
+      Number(hayAnon[0].n) === 2
+        ? await db.$queryRaw<{ tabla: string }[]>`
+            SELECT c.relname AS tabla FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+              AND (has_table_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE,DELETE')
+                OR has_table_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE,DELETE'))
+            ORDER BY 1`
+        : [];
+    anotar(
+      sinCandado.length === 0 && conPermisos.length === 0,
+      "Base cerrada a la API pública de Supabase",
+      sinCandado.length === 0 && conPermisos.length === 0
+        ? "Todas las tablas con RLS y sin permisos para anon"
+        : [
+            sinCandado.length ? `Sin RLS: ${sinCandado.map((t) => t.tabla).join(", ")}` : "",
+            conPermisos.length ? `Abiertas a anon: ${conPermisos.map((t) => t.tabla).join(", ")}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")
+    );
+
+    // El candado no debe dejar afuera a la propia app: entra como dueña de
+    // las tablas (o con BYPASSRLS), y a esa RLS no la frena.
+    const rolApp = await db.$queryRaw<{ usuario: string; brinca: boolean; ajenas: bigint }[]>`
+      SELECT current_user AS usuario,
+             (SELECT rolbypassrls OR rolsuper FROM pg_roles WHERE rolname = current_user) AS brinca,
+             (SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tableowner <> current_user) AS ajenas`;
+    const { usuario, brinca, ajenas } = rolApp[0];
+    anotar(
+      brinca || Number(ajenas) === 0,
+      "La app pasa el candado",
+      brinca || Number(ajenas) === 0
+        ? `Entra como "${usuario}" (${brinca ? "brinca RLS" : "dueña de todas las tablas"})`
+        : `"${usuario}" no es dueña de ${ajenas} tablas y no brinca RLS: con RLS no vería nada`
+    );
+
     const admins = await db.usuario.findMany({ where: { rol: "admin", activo: true } });
     const conPassword = admins.filter((a) => a.passwordHash);
     anotar(
