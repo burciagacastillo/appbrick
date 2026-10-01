@@ -10,8 +10,8 @@ import { recibirArchivo, guardarDocumento } from "@/lib/subida";
 export type ResultadoSubida = { ok: true; mensaje: string } | { ok: false; error: string };
 export type PermisoSubida = { ruta: string; url: string } | null | { error: string };
 
-/** 7 documentos del bloque, con margen para correcciones y reintentos. */
-const MAXIMO_POR_INVITACION = 40;
+/** Por bloque: ~7-13 documentos, con margen para correcciones y reintentos. */
+const MAXIMO_POR_BLOQUE = 40;
 
 /**
  * Revisa que ESTE link pueda subir a ESTE trámite. Toda la seguridad del
@@ -40,7 +40,9 @@ async function autorizar(token: string, tramiteId: string) {
   const yaSubidos = await db.documento.count({
     where: { subidoPorInvitacionId: invitacion.id },
   });
-  if (yaSubidos >= MAXIMO_POR_INVITACION) {
+  // Un link de los dos lados (contacto, o "ambos") sube el doble de papeles.
+  const bloques = invitacion.bloquesPermitidos.split(",").length;
+  if (yaSubidos >= MAXIMO_POR_BLOQUE * bloques) {
     return {
       ok: false as const,
       error: "Ya subiste demasiados archivos. Habla con Erick para continuar.",

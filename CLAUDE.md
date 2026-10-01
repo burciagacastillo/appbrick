@@ -13,7 +13,7 @@ Leerlo antes de tomar decisiones de producto.
 |---|---|---|
 | `src/app/(interno)/` | admin (Erick) y ayudante | Todo / solo documentos de sus propiedades |
 | `propiedades/[id]?tab=personas` | **solo admin** | NSS, contraseñas de Infonavit, referencias |
-| `src/app/subir/[token]/` | comprador o vendedor | **Solo sus documentos.** Sin cuenta, entra por link |
+| `src/app/subir/[token]/` | comprador, vendedor o contacto | **Solo sus documentos** (o los de los dos lados si así se generó el link). Sin cuenta, entra por link |
 | `src/app/casas/` | cualquiera | Catálogo público, botón de WhatsApp |
 | `src/app/entrar/` | admin y ayudante | Login |
 
@@ -95,7 +95,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 185 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 208 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -113,6 +113,8 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `buscar-expediente.test.ts` | El buscador de la ficha con los nombres reales: "zoni", "constancias de zonificacion", "30"; y que "Bonificación" ya no exista |
 | `conyuge.test.ts` | Documentos del cónyuge: se abren si es casado, se cierran si no, nunca se cierra lo que ya avanzó, y el link no pide lo que no aplica |
 | `seguridad-bd.test.ts` | Que toda tabla tenga RLS: sin eso, la API pública de Supabase la deja leer, cambiar y borrar a cualquiera |
+| `modalidad.test.ts` | Propia o externa: el margen de una externa es lo que cobra − gastos, y "solo avalúo" abre exactamente lo del valuador |
+| `acciones/externas.test.ts` | Las acciones contra la base: alta de una externa, el contacto y su "quién es", y las notas de la persona (no se guardaban) |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -282,6 +284,40 @@ liga de sus páginas; si choca se le agrega `-2`, y nunca puede ser `nueva`
 (taparía la página de alta). `prod:sembrar` sigue sirviendo para las que
 vienen de tus carpetas de Windows.
 
+## Propias y externas (desde el 01/10/2026)
+
+Pedido de Erick: distinguir las casas suyas de los trámites que hace para
+otros. `Propiedad.modalidad`:
+
+- **propia** — la compra, la arregla y la vende. Margen = venta estimada −
+  compra − gastos. Es lo que eran todas las de antes.
+- **externa** — la casa no es suya: alguien que ya tiene comprador y solo
+  quiere la tramitología, una licenciada de notaría que le pide un avalúo, o
+  un trámite con asesoría y adecuaciones (Praderas: barandal y cementado).
+  No lleva valor de compra; lleva `cobroCliente` ("Lo que cobro"), y su
+  **utilidad** = cobro − gastos.
+
+`margenDe()` en `lib/modalidad.ts` es la única fórmula; la usan la ficha, la
+galería y el tablero. En el tablero, invertido, valor y margen esperados son
+**solo de propias**; las externas tienen su propia franja (cobro, gastado,
+utilidad). Al dar de alta una externa se puede elegir **"Solo avalúo"**: abre
+nada más los trámites del paquete del avalúo (`NUMEROS_AVALUO`, sale de
+`PAQUETES`) y lo demás nace en "no aplica". En la pestaña Datos los campos de
+dinero cambian según la modalidad (`campos-dinero.tsx`); los que no se ven
+viajan ocultos para que cambiarla no borre nada.
+
+**Contacto** (`rol = "contacto"`): con quien se lleva la comunicación sin
+que compre ni venda (la licenciada de la notaría). Quién es vive en el
+vínculo (`PropiedadPersona.notas`), no en la persona: en otra operación
+puede ser otra cosa. Sale hasta arriba de la ficha con botón de WhatsApp
+(también comprador y vendedor tienen el suyo).
+
+**Links de los dos lados**: el contacto siempre sube los de comprador y
+vendedor; a un comprador o vendedor se le puede marcar "También sube los del
+otro lado" (`bloquesDeInvitacion()`, bloques `"A,B"`). El portal los agrupa
+en "Documentos del vendedor / del comprador" para no confundir dos INE, y el
+tope de archivos del link se multiplica por bloque.
+
 ## Fases de una propiedad
 
 Definidas por Erick el 23/09/2026 en `ETAPAS` (`lib/constants.ts`): adquisición,
@@ -369,7 +405,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 185 pruebas
+npm test           # las 208 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

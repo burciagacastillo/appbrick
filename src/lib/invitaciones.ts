@@ -14,18 +14,34 @@ const BLOQUES_POR_ROL: Record<string, string> = {
   vendedor: "A",
 };
 
+export type RolInvitacion = "comprador" | "vendedor" | "contacto";
+
+/**
+ * Los bloques que ve un link. Normalmente solo los de su lado; con "ambos",
+ * los de comprador y vendedor (en una externa la compradora a veces trae
+ * también los papeles del vendedor). El contacto (p. ej. la licenciada de la
+ * notaría) no es de ningún lado: siempre ve los dos.
+ */
+export function bloquesDeInvitacion(rol: RolInvitacion, ambos = false): string {
+  if (rol === "contacto" || ambos) return "A,B";
+  const bloques = BLOQUES_POR_ROL[rol];
+  if (!bloques) throw new Error(`Rol de invitación no válido: ${rol}`);
+  return bloques;
+}
+
 /** Vigencia por defecto del link: 60 días. Un trámite Infonavit rara vez dura más. */
 const DIAS_VIGENCIA = 60;
 
 export async function crearInvitacion(opciones: {
   propiedadId: string;
   personaId: string;
-  rol: "comprador" | "vendedor";
+  rol: RolInvitacion;
+  /** Que suba también los documentos del otro lado. */
+  ambos?: boolean;
   diasVigencia?: number;
   creadaPor: string;
 }) {
-  const bloques = BLOQUES_POR_ROL[opciones.rol];
-  if (!bloques) throw new Error(`Rol de invitación no válido: ${opciones.rol}`);
+  const bloques = bloquesDeInvitacion(opciones.rol, opciones.ambos);
 
   const expiraEn = new Date();
   expiraEn.setDate(expiraEn.getDate() + (opciones.diasVigencia ?? DIAS_VIGENCIA));

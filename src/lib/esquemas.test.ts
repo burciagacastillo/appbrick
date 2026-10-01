@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { EsquemaCodigo, EsquemaLogin, EsquemaGasto, EsquemaVincular, EsquemaPersona, validar } from "./esquemas";
+import {
+  EsquemaCodigo,
+  EsquemaLogin,
+  EsquemaGasto,
+  EsquemaVincular,
+  EsquemaPersona,
+  EsquemaNuevaPropiedad,
+  EsquemaInvitar,
+  validar,
+} from "./esquemas";
 
 // Los esquemas deciden qué entra. Un error aquí no truena: rechaza en
 // silencio datos buenos. Así pasó con el código del segundo factor, cuya
@@ -119,5 +128,65 @@ describe("EsquemaPersona — el NSS también se limpia al editar", () => {
     );
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.datos.nss).toBe("12345678901");
+  });
+});
+
+describe("EsquemaNuevaPropiedad — propia o externa", () => {
+  const base = { nombre: "Praderas de Mapaula", tipo: "casa", etapa: "en_tramite" };
+
+  it("si no se dice nada es propia, con expediente completo", () => {
+    const r = validar(EsquemaNuevaPropiedad, forma(base));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.datos.modalidad).toBe("propia");
+      expect(r.datos.expediente).toBe("completo");
+    }
+  });
+
+  it("externa con lo que se cobra y solo avalúo", () => {
+    const r = validar(
+      EsquemaNuevaPropiedad,
+      forma({ ...base, modalidad: "externa", cobroCliente: "45000", expediente: "avaluo" })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.datos.modalidad).toBe("externa");
+      expect(r.datos.cobroCliente).toBe(45_000);
+      expect(r.datos.expediente).toBe("avaluo");
+    }
+  });
+
+  it("rechaza una modalidad o un expediente inventados", () => {
+    expect(validar(EsquemaNuevaPropiedad, forma({ ...base, modalidad: "rentada" })).ok).toBe(false);
+    expect(validar(EsquemaNuevaPropiedad, forma({ ...base, expediente: "medio" })).ok).toBe(false);
+  });
+});
+
+describe("EsquemaInvitar — contacto y links de los dos lados", () => {
+  const base = { propiedadId: "praderas", nombre: "Lic. Ana Torres" };
+
+  it("acepta contacto, y ambos llega como casilla", () => {
+    const r = validar(EsquemaInvitar, forma({ ...base, rol: "contacto" }));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.datos.ambos).toBe(false);
+
+    const c = validar(EsquemaInvitar, forma({ ...base, rol: "comprador", ambos: "on" }));
+    expect(c.ok).toBe(true);
+    if (c.ok) expect(c.datos.ambos).toBe(true);
+  });
+
+  it("rechaza un papel que no sube documentos", () => {
+    expect(validar(EsquemaInvitar, forma({ ...base, rol: "notario" })).ok).toBe(false);
+  });
+});
+
+describe("EsquemaVincular — el contacto", () => {
+  it("acepta el papel de contacto con quién es", () => {
+    const r = validar(
+      EsquemaVincular,
+      forma({ propiedadId: "praderas", nombre: "Lic. Ana Torres", rol: "contacto", quienEs: "Licenciada de la notaría 5" })
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.datos.quienEs).toBe("Licenciada de la notaría 5");
   });
 });

@@ -14,7 +14,7 @@ import {
   BOTON_SECUNDARIO,
 } from "@/components/ui";
 import { FormaInvitar } from "@/components/formularios";
-import { fechaCorta } from "@/lib/constants";
+import { fechaCorta, rolPersona } from "@/lib/constants";
 import { urlDelPortal, mensajeWhatsApp, linkWhatsAppA } from "@/lib/invitaciones";
 import { revocarInvitacion } from "@/acciones/equipo";
 
@@ -63,8 +63,13 @@ function Fila({ f }: { f: FilaRecordatorio }) {
           <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{f.invitacion.persona.nombre}</span>
-            <Badge color={f.invitacion.rol === "comprador" ? "blue" : "violet"}>
-              {f.invitacion.rol}
+            <Badge
+              color={
+                f.invitacion.rol === "comprador" ? "blue" : f.invitacion.rol === "vendedor" ? "violet" : "slate"
+              }
+            >
+              {rolPersona(f.invitacion.rol)}
+              {f.invitacion.bloquesPermitidos.includes(",") ? " · los dos lados" : ""}
             </Badge>
             {f.nuncaAbrio ? <Badge color="rose">Nunca abrió el link</Badge> : null}
             {f.rechazados > 0 ? (

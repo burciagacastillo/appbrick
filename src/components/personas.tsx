@@ -153,6 +153,20 @@ function FichaPersona({ v, propiedadId }: { v: Vinculo; propiedadId: string }) {
           <input name="telefono" defaultValue={p.telefono ?? ""} className={CLASE_CAMPO} />
         </Campo>
 
+        {v.rol === "contacto" ? (
+          <>
+            <input type="hidden" name="vinculoId" value={v.id} />
+            <Campo etiqueta="¿Quién es?" nota="En esta operación" className="sm:col-span-3">
+              <input
+                name="quienEs"
+                defaultValue={v.notas ?? ""}
+                placeholder="Licenciada de la notaría 5"
+                className={CLASE_CAMPO}
+              />
+            </Campo>
+          </>
+        ) : null}
+
         <Campo etiqueta="CURP">
           <input name="curp" defaultValue={p.curp ?? ""} className={CLASE_CAMPO} />
         </Campo>
@@ -480,6 +494,20 @@ function Agregar({ propiedadId, rolInicial }: { propiedadId: string; rolInicial?
             <input name="telefono" inputMode="tel" placeholder="614 123 4567" className={CLASE_CAMPO} />
           </Campo>
 
+          {rol === "contacto" ? (
+            <Campo
+              etiqueta="¿Quién es?"
+              nota="Con quien llevas la comunicación sin que compre ni venda"
+              className="sm:col-span-4"
+            >
+              <input
+                name="quienEs"
+                placeholder="Licenciada de la notaría 5, hermana de la compradora…"
+                className={CLASE_CAMPO}
+              />
+            </Campo>
+          ) : null}
+
           {delTramite ? (
             <>
               <div className="border-t border-linea/60 pt-4 sm:col-span-4">
@@ -649,8 +677,8 @@ export function Personas({
   /** Papel preseleccionado al llegar desde "Sin comprador · Agregar". */
   rolInicial?: string;
 }) {
-  // Comprador primero, luego vendedor, luego el resto.
-  const ORDEN = ["comprador", "vendedor", "socio"];
+  // Comprador primero, luego vendedor, el contacto, y luego el resto.
+  const ORDEN = ["comprador", "vendedor", "contacto", "socio"];
   const peso = (rol: string) => {
     const i = ORDEN.indexOf(rol);
     return i === -1 ? ORDEN.length : i;

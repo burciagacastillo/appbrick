@@ -7,7 +7,7 @@ import { exigirAdmin } from "@/lib/permisos";
 import { registrar } from "@/lib/bitacora";
 import { etapa as buscarEtapa } from "@/lib/constants";
 import { idUnico } from "@/lib/slug";
-import { esDeConyuge } from "@/lib/conyuge";
+import { estadoInicial } from "@/lib/modalidad";
 import {
   validar,
   validarOTronar,
@@ -220,6 +220,8 @@ export async function guardarPropiedad(formData: FormData) {
       colonia: d.colonia,
       etapa: d.etapa,
       tipo: d.tipo,
+      modalidad: d.modalidad,
+      cobroCliente: d.cobroCliente,
       valorCompra: d.valorCompra,
       valorVentaEstimado: d.valorVentaEstimado,
       valorVentaReal: d.valorVentaReal,
@@ -242,7 +244,8 @@ export type ResultadoNuevaPropiedad = { ok: false; error: string } | null;
 
 /**
  * Da de alta una propiedad con su expediente completo (todos los trámites en
- * "falta"), igual que las que vinieron de tus carpetas. El id sale del nombre
+ * "falta"), igual que las que vinieron de tus carpetas. Una externa de "solo
+ * avalúo" abre nada más lo que pide el valuador (src/lib/modalidad.ts). El id sale del nombre
  * ("Praderas 12" → "praderas-12") porque es la liga de sus páginas; si ya
  * existe, se le agrega un número.
  */
@@ -262,6 +265,10 @@ export async function crearPropiedad(
 
   const catalogo = await db.tramiteCatalogo.findMany({ select: { id: true, numero: true } });
 
+  // En una externa no hay casa comprada: su número es lo que se cobra.
+  const externa = d.modalidad === "externa";
+  const expediente = externa ? d.expediente : "completo";
+
   // Una sola operación: o se crea con todos sus trámites, o no se crea.
   await db.propiedad.create({
     data: {
@@ -272,13 +279,15 @@ export async function crearPropiedad(
       ciudad: d.ciudad,
       tipo: d.tipo,
       etapa: d.etapa,
-      valorCompra: d.valorCompra,
+      modalidad: d.modalidad,
+      valorCompra: externa ? null : d.valorCompra,
+      cobroCliente: externa ? d.cobroCliente : null,
       notas: d.notas,
       // Los del cónyuge nacen cerrados: todavía no hay nadie capturado como casado.
       tramites: {
         create: catalogo.map((c) => ({
           catalogoId: c.id,
-          estado: esDeConyuge(c.numero) ? "no_aplica" : "falta",
+          estado: estadoInicial(c.numero, expediente),
         })),
       },
     },
@@ -290,7 +299,9 @@ export async function crearPropiedad(
     accion: "creo_propiedad",
     entidad: "propiedad",
     entidadId: id,
-    detalle: d.nombre,
+    detalle: externa
+      ? `${d.nombre} (externa${expediente === "avaluo" ? ", solo avalúo" : ""})`
+      : d.nombre,
   });
 
   revalidatePath("/propiedades");

@@ -48,8 +48,8 @@ export default async function Tablero() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Invertido" valor={mxn(resumen.invertido)} sub="Compra + gastos, activas" />
-        <Stat label="Valor esperado" valor={mxn(resumen.valorEsperado)} sub="Venta estimada, activas" />
+        <Stat label="Invertido" valor={mxn(resumen.invertido)} sub="Compra + gastos, propias activas" />
+        <Stat label="Valor esperado" valor={mxn(resumen.valorEsperado)} sub="Venta estimada, propias activas" />
         <Stat
           label="Margen esperado"
           valor={resumen.margenEsperado === null ? "—" : mxn(resumen.margenEsperado)}
@@ -75,6 +75,38 @@ export default async function Tablero() {
           }
         />
       </div>
+
+      {/* Las externas no son casas de Erick: no entran en invertido ni en
+          valor esperado. Lo suyo es lo que cobra contra lo que gasta. */}
+      {resumen.externas.activas > 0 ? (
+        <Card className="flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-4 text-sm">
+          <span className="font-semibold">
+            Externas{" "}
+            <span className="font-normal text-tenue">
+              · {resumen.externas.activas} {resumen.externas.activas === 1 ? "activa" : "activas"}
+            </span>
+          </span>
+          <span className="text-tenue">
+            Cobro <span className="font-medium text-tinta tabular">{mxn(resumen.externas.cobro)}</span>
+          </span>
+          <span className="text-tenue">
+            Gastado <span className="font-medium text-tinta tabular">{mxn(resumen.externas.gastado)}</span>
+          </span>
+          <span className="text-tenue">
+            Utilidad{" "}
+            <span
+              className={`font-medium tabular ${resumen.externas.utilidad < 0 ? "text-rose-600" : "text-tinta"}`}
+            >
+              {mxn(resumen.externas.utilidad)}
+            </span>
+          </span>
+          {resumen.externas.sinCobro > 0 ? (
+            <span className="text-xs text-amber-700">
+              {resumen.externas.sinCobro} sin lo que cobras capturado
+            </span>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

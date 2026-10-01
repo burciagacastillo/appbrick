@@ -20,7 +20,9 @@ export function TarjetaPropiedad({
   /** La portada, si la casa tiene fotos. */
   fotoId?: string;
 }) {
-  const precio = p.precioPublico ?? p.valorVentaEstimado;
+  // En una externa la casa no es de Erick: su número es lo que cobra.
+  const externa = p.modalidad === "externa";
+  const precio = externa ? p.cobroCliente : (p.precioPublico ?? p.valorVentaEstimado);
   const metros = p.m2Construccion ?? p.m2Terreno;
   const caracteristicas = [
     p.recamaras != null ? { icono: BedDouble, texto: numero(p.recamaras), titulo: "Recámaras" } : null,
@@ -51,8 +53,15 @@ export function TarjetaPropiedad({
             </div>
           </div>
         )}
-        <div className="absolute top-3 left-3 rounded-full bg-white/90 p-0.5 backdrop-blur">
-          <EtapaBadge id={p.etapa} />
+        <div className="absolute top-3 left-3 flex items-center gap-1.5">
+          <div className="rounded-full bg-white/90 p-0.5 backdrop-blur">
+            <EtapaBadge id={p.etapa} />
+          </div>
+          {externa ? (
+            <span className="rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-tinta backdrop-blur">
+              Externa
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -68,7 +77,14 @@ export function TarjetaPropiedad({
         </div>
 
         <div className="mt-3 text-2xl font-bold tracking-tight tabular">
-          {precio != null ? mxn(precio) : <span className="text-base font-medium text-slate-400">Sin precio</span>}
+          {precio != null ? (
+            <>
+              {mxn(precio)}
+              {externa ? <span className="ml-1.5 text-xs font-medium text-tenue">cobro</span> : null}
+            </>
+          ) : (
+            <span className="text-base font-medium text-slate-400">{externa ? "Sin cobro" : "Sin precio"}</span>
+          )}
         </div>
 
         {caracteristicas.length > 0 ? (
@@ -97,7 +113,7 @@ export function TarjetaPropiedad({
             Gastado <span className="font-medium text-tinta tabular">{mxn(p.dinero.gastado)}</span>
           </span>
           <span>
-            Margen{" "}
+            {externa ? "Utilidad" : "Margen"}{" "}
             <span className={`font-medium tabular ${margenNegativo ? "text-rose-600" : "text-tinta"}`}>
               {mxn(p.dinero.margen)}
             </span>

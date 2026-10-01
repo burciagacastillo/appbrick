@@ -22,6 +22,19 @@ export const ETAPAS = [
 
 export type EtapaId = (typeof ETAPAS)[number]["id"];
 
+// Propia o externa (pedido de Erick del 01/10/2026). Cambia el dinero: una
+// externa no lleva valor de compra; su utilidad es lo que cobra menos gastos.
+export const MODALIDADES = [
+  { id: "propia", label: "Propia", desc: "La compro, la arreglo y la vendo" },
+  {
+    id: "externa",
+    label: "Externa",
+    desc: "La casa no es mía: hago el trámite, la asesoría, el avalúo o adecuaciones",
+  },
+] as const;
+
+export type ModalidadId = (typeof MODALIDADES)[number]["id"];
+
 export const TIPOS_PROPIEDAD = [
   { id: "casa", label: "Casa" },
   { id: "terreno", label: "Terreno" },
@@ -89,6 +102,9 @@ export const METODOS_PAGO = [
 export const ROLES_PERSONA = [
   { id: "vendedor", label: "Vendedor" },
   { id: "comprador", label: "Comprador" },
+  // Con quien se lleva la comunicación sin ser comprador ni vendedor: la
+  // licenciada de la notaría, un familiar, el asesor del cliente.
+  { id: "contacto", label: "Contacto" },
   { id: "socio", label: "Socio" },
   { id: "contratista", label: "Contratista" },
   { id: "notario", label: "Notaría" },

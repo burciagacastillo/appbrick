@@ -75,8 +75,19 @@ export async function guardarPersona(
       numeroCredito: d.numeroCredito,
       infonavitUsuario: d.infonavitUsuario,
       infonavitPasswordCifrada,
+      // Hasta el 01/10/2026 la ficha mandaba las notas y aquí no se guardaban.
+      notas: d.notas,
     },
   });
+
+  // Quién es un contacto ("Licenciada de la notaría 5") vive en su vínculo
+  // con ESTA propiedad, no en la persona: en otra operación puede ser otra cosa.
+  if (d.vinculoId) {
+    await db.propiedadPersona.updateMany({
+      where: { id: d.vinculoId, personaId: d.personaId, propiedadId: d.propiedadId },
+      data: { notas: d.quienEs },
+    });
+  }
 
   if (cambioPassword) {
     await registrar({
@@ -237,7 +248,7 @@ export async function vincularPersona(
 
   const v = validar(EsquemaVincular, formData);
   if (!v.ok) return { ok: false, error: v.error };
-  const { propiedadId, nombre, telefono, rol } = v.datos;
+  const { propiedadId, nombre, telefono, rol, quienEs } = v.datos;
 
   // Los datos del trámite que vinieron en el alta. Si no está casado, el
   // régimen y el cónyuge no aplican.
@@ -294,7 +305,7 @@ export async function vincularPersona(
   }
 
   await db.propiedadPersona.create({
-    data: { propiedadId, personaId: persona.id, rol },
+    data: { propiedadId, personaId: persona.id, rol, notas: rol === "contacto" ? quienEs : null },
   });
 
   // El NSS mueve el trámite 13, y el estado civil abre o cierra lo del

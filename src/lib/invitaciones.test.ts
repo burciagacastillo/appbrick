@@ -1,5 +1,11 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { urlPublica, urlDelPortal, telefonoWhatsApp } from "./invitaciones";
+import {
+  urlPublica,
+  urlDelPortal,
+  telefonoWhatsApp,
+  bloquesDeInvitacion,
+  tramitesDelInvitado,
+} from "./invitaciones";
 
 // Los links que salen por WhatsApp. Un error aquí no truena: manda al
 // comprador un link que no abre.
@@ -49,5 +55,31 @@ describe("telefonoWhatsApp", () => {
   it("devuelve null si no se puede, para ocultar el botón", () => {
     expect(telefonoWhatsApp(null)).toBeNull();
     expect(telefonoWhatsApp("123")).toBeNull();
+  });
+});
+
+describe("bloquesDeInvitacion — qué documentos sube cada link", () => {
+  it("comprador y vendedor, cada quien su lado", () => {
+    expect(bloquesDeInvitacion("comprador")).toBe("B");
+    expect(bloquesDeInvitacion("vendedor")).toBe("A");
+  });
+
+  it("con ambos, los dos lados (la compradora que trae los papeles del vendedor)", () => {
+    expect(bloquesDeInvitacion("comprador", true)).toBe("A,B");
+    expect(bloquesDeInvitacion("vendedor", true)).toBe("A,B");
+  });
+
+  it("el contacto (la licenciada de la notaría) siempre los dos", () => {
+    expect(bloquesDeInvitacion("contacto")).toBe("A,B");
+  });
+
+  it("un link de los dos lados ve los de los dos, y solo los que sube el invitado", () => {
+    const t = (bloque: string, loSubeInvitado = true, estado = "falta") => ({
+      estado,
+      catalogo: { bloque, loSubeInvitado },
+    });
+    const lista = [t("A"), t("B"), t("C"), t("A", false), t("B", true, "no_aplica")];
+    expect(tramitesDelInvitado(lista, bloquesDeInvitacion("contacto"))).toHaveLength(2);
+    expect(tramitesDelInvitado(lista, bloquesDeInvitacion("comprador"))).toHaveLength(1);
   });
 });

@@ -86,10 +86,10 @@ model Invitacion {
   token       String @unique
   propiedadId String
   personaId   String
-  /// "comprador" | "vendedor" — define qué bloque del checklist ve.
+  /// "comprador" | "vendedor" | "contacto". Qué bloques ve está en bloquesPermitidos.
   rol         String
 
-  /// Bloques del catálogo que puede ver, separados por coma ("B" o "A").
+  /// Bloques del catálogo que puede ver, separados por coma ("A", "B" o "A,B").
   /// Se calcula del rol al crear la invitación, pero se puede ajustar.
   bloquesPermitidos String
 
@@ -209,10 +209,11 @@ model PropiedadPersona {
   id          String @id @default(cuid())
   propiedadId String
   personaId   String
-  /// "vendedor" | "comprador" | "socio" | "contratista" | "notario" | "valuador" | "otro"
+  /// "vendedor" | "comprador" | "contacto" | "socio" | "contratista" | "notario" | "valuador" | "otro"
   rol         String
   /// Solo para socios: % de participación en el proyecto.
   porcentaje  Float?
+  /// En un contacto, quién es en esta operación ("Licenciada de la notaría 5").
   notas       String?
 
   propiedad Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
@@ -242,6 +243,12 @@ model Propiedad {
   carpetaDrive String?
 
   // === CONFIDENCIAL — nunca sale a la cara pública ========================
+  /// "propia" (la compra, la arregla y la vende) | "externa" (la casa no es
+  /// de Erick: cobra por el trámite, la asesoría, el avalúo o adecuaciones).
+  modalidad    String @default("propia")
+  /// Solo en externas: lo que Erick le cobra al cliente. Utilidad = esto − gastos.
+  cobroCliente Float?
+
   valorCompra        Float?
   valorVentaEstimado Float?
   valorVentaReal     Float?

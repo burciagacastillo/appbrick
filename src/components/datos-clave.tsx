@@ -1,19 +1,71 @@
 import Link from "next/link";
-import { UserRound } from "lucide-react";
+import { MessageCircle, UserRound } from "lucide-react";
 import { Card } from "./ui";
 import { BotonCopiar } from "./copiar";
 import { NotaRapida } from "./nota-rapida";
 import type { PropiedadDetalle } from "@/lib/queries";
 import { estadoCivil, regimen } from "@/lib/constants";
+import { telefonoWhatsApp } from "@/lib/invitaciones";
 
-// Lo que Erick consulta más seguido al entrar a una propiedad: quién compra,
-// quién vende, sus NSS y números de crédito — con botón de copiar — y una
-// nota rápida. Solo admin (la página ya lo exige).
+// Lo que Erick consulta más seguido al entrar a una propiedad: con quién
+// habla (el contacto, si no es comprador ni vendedor), quién compra, quién
+// vende, sus NSS y números de crédito — con botón de copiar — y una nota
+// rápida. Solo admin (la página ya lo exige).
 //
 // OJO: la persona completa trae la contraseña de Infonavit (cifrada). A los
 // componentes de cliente solo se les pasa el texto que copian, nunca la persona.
 
 type Rol = "comprador" | "vendedor";
+
+/** Directo al chat. Sin teléfono válido no se pinta (no hay a dónde mandar). */
+function BotonWhatsApp({ telefono }: { telefono: string | null }) {
+  const numero = telefonoWhatsApp(telefono);
+  if (!numero) return null;
+  return (
+    <a
+      href={`https://wa.me/${numero}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`WhatsApp ${telefono}`}
+      className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+    >
+      <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.75} />
+      WhatsApp
+    </a>
+  );
+}
+
+/**
+ * Con quien se lleva la comunicación sin ser comprador ni vendedor: la
+ * licenciada de la notaría, un familiar, el asesor del cliente. "Quién es"
+ * vive en el vínculo con esta propiedad (PropiedadPersona.notas).
+ */
+function Contactos({ personas }: { personas: PropiedadDetalle["personas"] }) {
+  const contactos = personas.filter((pp) => pp.rol === "contacto");
+  if (contactos.length === 0) return null;
+
+  return (
+    <div className="mb-6 border-b border-linea/60 pb-5">
+      <div className="text-[13px] font-medium text-tenue">
+        {contactos.length > 1 ? "Contactos" : "Contacto"}
+      </div>
+      <ul className="mt-2 space-y-2">
+        {contactos.map(({ id, notas, persona }) => (
+          <li key={id} className="flex items-center gap-2">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-slate-100 text-tenue">
+              <UserRound className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 truncate">
+              <span className="font-semibold tracking-tight">{persona.nombre}</span>
+              {notas ? <span className="text-sm text-tenue"> · {notas}</span> : null}
+            </span>
+            <BotonWhatsApp telefono={persona.telefono} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: string | null }) {
   return (
@@ -114,6 +166,7 @@ function Lado({
                   <UserRound className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </span>
                 <span className="truncate font-semibold tracking-tight">{persona.nombre}</span>
+                <BotonWhatsApp telefono={persona.telefono} />
               </div>
               <EstadoCivil
                 estadoCivilId={persona.estadoCivil}
@@ -136,10 +189,20 @@ function Lado({
 export function DatosClave({ propiedad }: { propiedad: PropiedadDetalle }) {
   return (
     <Card className="p-6">
+      <Contactos personas={propiedad.personas} />
       <div className="grid gap-6 sm:grid-cols-2">
         <Lado rol="comprador" personas={propiedad.personas} propiedadId={propiedad.id} />
         <Lado rol="vendedor" personas={propiedad.personas} propiedadId={propiedad.id} />
       </div>
+      {/* En una externa a veces se habla con alguien que no compra ni vende. */}
+      {propiedad.modalidad === "externa" && !propiedad.personas.some((pp) => pp.rol === "contacto") ? (
+        <Link
+          href={`/propiedades/${encodeURIComponent(propiedad.id)}?tab=personas&rol=contacto#agregar`}
+          className="mt-4 inline-flex text-xs text-slate-400 hover:text-tinta"
+        >
+          ¿Hablas con alguien más? Agregar contacto →
+        </Link>
+      ) : null}
       <div className="mt-6 border-t border-linea/60 pt-5">
         <NotaRapida propiedadId={propiedad.id} notas={propiedad.notas ?? ""} />
       </div>

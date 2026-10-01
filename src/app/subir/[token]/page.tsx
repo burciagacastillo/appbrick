@@ -28,6 +28,12 @@ const MOTIVOS: Record<string, { titulo: string; texto: string }> = {
   },
 };
 
+/** Encabezados cuando el link trae los dos lados. */
+const LADOS: Record<string, string> = {
+  A: "Documentos del vendedor",
+  B: "Documentos del comprador",
+};
+
 const BOTON_NEGRO =
   "flex w-full items-center justify-center gap-2 rounded-2xl bg-tinta px-5 py-4 text-[15px] font-semibold text-white transition-all duration-150 hover:bg-slate-800 active:scale-[0.99]";
 
@@ -76,8 +82,16 @@ export default async function PortalInvitado({
     return <Aviso titulo={m.titulo} texto={m.texto} />;
   }
 
-  const { invitacion, tramites } = validacion;
+  const { invitacion } = validacion;
   await registrarAcceso(invitacion.id);
+
+  // Un link de los dos lados (contacto, o comprador que trae los papeles del
+  // vendedor) ve dos INE, dos CURP…: van agrupados por lado para no
+  // confundirlas. El orden de la lista es el de los grupos.
+  const dosLados = invitacion.bloquesPermitidos.includes(",");
+  const tramites = dosLados
+    ? [...validacion.tramites].sort((a, b) => a.catalogo.bloque.localeCompare(b.catalogo.bloque))
+    : validacion.tramites;
 
   const primerNombre = invitacion.persona.nombre.split(" ")[0];
 
@@ -186,7 +200,11 @@ export default async function PortalInvitado({
 
       {/* La lista */}
       <ul className="mt-6 space-y-4">
-        {tramites.map((t) => {
+        {tramites.map((t, i) => {
+          const encabezado =
+            dosLados && t.catalogo.bloque !== tramites[i - 1]?.catalogo.bloque
+              ? LADOS[t.catalogo.bloque]
+              : null;
           const vigentes = t.documentos.filter((d) => d.estado !== "rechazado");
           const ultimo = vigentes[0];
           const rechazado = !ultimo
@@ -194,49 +212,55 @@ export default async function PortalInvitado({
             : undefined;
 
           return (
-            <li
-              key={t.id}
-              id={`doc-${t.id}`}
-              className="scroll-mt-6 rounded-tarjeta bg-white p-6 shadow-suave ring-1 ring-black/[0.03]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h2 className="text-[15px] font-semibold tracking-tight">{t.catalogo.nombre}</h2>
-                  {t.catalogo.ayudaInvitado ? (
-                    <p className="mt-1 text-sm leading-relaxed text-tenue">
-                      {t.catalogo.ayudaInvitado}
-                    </p>
-                  ) : null}
+            <li key={t.id}>
+              {encabezado ? (
+                <h2 className={`mb-3 px-1 text-xs font-semibold tracking-wide text-tenue uppercase ${i > 0 ? "mt-8" : ""}`}>
+                  {encabezado}
+                </h2>
+              ) : null}
+              <div
+                id={`doc-${t.id}`}
+                className="scroll-mt-6 rounded-tarjeta bg-white p-6 shadow-suave ring-1 ring-black/[0.03]"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="text-[15px] font-semibold tracking-tight">{t.catalogo.nombre}</h2>
+                    {t.catalogo.ayudaInvitado ? (
+                      <p className="mt-1 text-sm leading-relaxed text-tenue">
+                        {t.catalogo.ayudaInvitado}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {ultimo?.estado === "aprobado" ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#e6f4ea] px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                      <CircleCheck className="h-3.5 w-3.5" strokeWidth={2} />
+                      Aprobado
+                    </span>
+                  ) : ultimo ? (
+                    <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                      En revisión
+                    </span>
+                  ) : (
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-tenue">
+                      Falta
+                    </span>
+                  )}
                 </div>
 
-                {ultimo?.estado === "aprobado" ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#e6f4ea] px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    <CircleCheck className="h-3.5 w-3.5" strokeWidth={2} />
-                    Aprobado
-                  </span>
-                ) : ultimo ? (
-                  <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                    En revisión
-                  </span>
-                ) : (
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-tenue">
-                    Falta
-                  </span>
+                {rechazado ? (
+                  <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm">
+                    <p className="font-semibold text-rose-700">Hay que volver a subirlo</p>
+                    <p className="mt-1 text-rose-600">
+                      {rechazado.motivoRechazo ?? "No se pudo usar el archivo anterior."}
+                    </p>
+                  </div>
+                ) : null}
+
+                {ultimo?.estado === "aprobado" ? null : (
+                  <SubirForm token={token} tramiteId={t.id} yaSubido={Boolean(ultimo)} />
                 )}
               </div>
-
-              {rechazado ? (
-                <div className="mt-4 rounded-2xl bg-rose-50 p-4 text-sm">
-                  <p className="font-semibold text-rose-700">Hay que volver a subirlo</p>
-                  <p className="mt-1 text-rose-600">
-                    {rechazado.motivoRechazo ?? "No se pudo usar el archivo anterior."}
-                  </p>
-                </div>
-              ) : null}
-
-              {ultimo?.estado === "aprobado" ? null : (
-                <SubirForm token={token} tramiteId={t.id} yaSubido={Boolean(ultimo)} />
-              )}
             </li>
           );
         })}

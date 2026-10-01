@@ -98,7 +98,7 @@ export async function invitarPersona(
 
   const v = validar(EsquemaInvitar, formData);
   if (!v.ok) return { ok: false, error: v.error };
-  const { propiedadId, rol, nombre, telefono } = v.datos;
+  const { propiedadId, rol, ambos, nombre, telefono } = v.datos;
 
   // Identificar a la persona por nombre es peligroso: dos "José García" se
   // fusionarían y el segundo heredaría el CURP y el crédito del primero.
@@ -144,6 +144,7 @@ export async function invitarPersona(
     propiedadId,
     personaId: persona.id,
     rol,
+    ambos,
     creadaPor: admin.nombre,
   });
 

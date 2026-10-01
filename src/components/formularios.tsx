@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import {
   agregarGasto,
   crearPropiedad,
@@ -16,6 +16,8 @@ import {
   METODOS_PAGO,
   ETAPAS,
   TIPOS_PROPIEDAD,
+  MODALIDADES,
+  type ModalidadId,
 } from "@/lib/constants";
 
 // Formularios que pueden fallar por datos, no por un fallo del programa.
@@ -197,10 +199,18 @@ export function FormaInvitar({
     null
   );
   const forma = useRef<HTMLFormElement>(null);
+  const [rol, setRol] = useState("comprador");
+  const [ultimo, setUltimo] = useState(estado);
 
   useEffect(() => {
     if (estado?.ok) forma.current?.reset();
   }, [estado]);
+
+  // El reset del formulario regresa el select a "Comprador": el estado también.
+  if (estado !== ultimo) {
+    setUltimo(estado);
+    if (estado?.ok) setRol("comprador");
+  }
 
   return (
     <form ref={forma} action={accion} className="grid gap-3 px-6 pt-1 pb-6 sm:grid-cols-5">
@@ -215,9 +225,15 @@ export function FormaInvitar({
       </Campo>
 
       <Campo etiqueta="Es el…">
-        <select name="rol" className={CLASE_CAMPO} defaultValue="comprador">
+        <select
+          name="rol"
+          className={CLASE_CAMPO}
+          defaultValue="comprador"
+          onChange={(e) => setRol(e.target.value)}
+        >
           <option value="comprador">Comprador</option>
           <option value="vendedor">Vendedor</option>
+          <option value="contacto">Contacto</option>
         </select>
       </Campo>
 
@@ -228,6 +244,19 @@ export function FormaInvitar({
       <Campo etiqueta="WhatsApp" nota="Sin esto no se le puede mandar el link">
         <input name="telefono" placeholder="614 123 4567" className={CLASE_CAMPO} />
       </Campo>
+
+      {/* En una externa, la compradora a veces trae también los papeles del
+          vendedor; el contacto (la licenciada de la notaría) siempre los dos. */}
+      <div className="text-sm sm:col-span-5">
+        {rol === "contacto" ? (
+          <p className="text-tenue">Sube los documentos del comprador y del vendedor.</p>
+        ) : (
+          <label className="inline-flex cursor-pointer items-center gap-2 text-tenue">
+            <input type="checkbox" name="ambos" className="h-4 w-4 rounded border-slate-300" />
+            También sube los del {rol === "comprador" ? "vendedor" : "comprador"}
+          </label>
+        )}
+      </div>
 
       <div className="pt-1 sm:col-span-5">
         <button type="submit" disabled={pendiente} className={BOTON_PRIMARIO}>
@@ -253,9 +282,40 @@ export function FormaNuevaPropiedad() {
     crearPropiedad,
     null
   );
+  // Propia o externa cambia qué dinero se pide: en una externa no hay casa
+  // comprada, solo lo que se cobra (src/lib/modalidad.ts).
+  const [modalidad, setModalidad] = useState<ModalidadId>("propia");
+  const externa = modalidad === "externa";
 
   return (
     <form action={accion} className="grid gap-4 px-6 pt-1 pb-6 sm:grid-cols-2">
+      <fieldset className="sm:col-span-2">
+        <legend className="text-xs font-medium text-tenue">¿De quién es?</legend>
+        <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+          {MODALIDADES.map((m) => (
+            <label
+              key={m.id}
+              className={`cursor-pointer rounded-xl border px-4 py-3 transition-colors ${
+                modalidad === m.id
+                  ? "border-tinta bg-slate-50 ring-1 ring-tinta"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <input
+                type="radio"
+                name="modalidad"
+                value={m.id}
+                checked={modalidad === m.id}
+                onChange={() => setModalidad(m.id)}
+                className="sr-only"
+              />
+              <span className="block text-sm font-semibold text-tinta">{m.label}</span>
+              <span className="mt-0.5 block text-xs text-tenue">{m.desc}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <Campo etiqueta="Nombre" nota="Como la reconoces: “Praderas 12”, “Casa de Aldama”…" className="sm:col-span-2">
         <input name="nombre" required autoFocus maxLength={200} className={CLASE_CAMPO} />
       </Campo>
@@ -289,9 +349,23 @@ export function FormaNuevaPropiedad() {
           ))}
         </select>
       </Campo>
-      <Campo etiqueta="Valor de compra" nota="Opcional">
-        <input type="number" step="0.01" min="0" name="valorCompra" className={`${CLASE_CAMPO} tabular`} />
-      </Campo>
+      {externa ? (
+        <>
+          <Campo etiqueta="Lo que cobro" nota="Asesoría, trámite, avalúo, adecuaciones… Opcional">
+            <input type="number" step="0.01" min="0" name="cobroCliente" className={`${CLASE_CAMPO} tabular`} />
+          </Campo>
+          <Campo etiqueta="Expediente" nota="Lo que no aplique queda en “—”; se puede abrir después">
+            <select name="expediente" defaultValue="completo" className={CLASE_CAMPO}>
+              <option value="completo">Completo (todo el trámite)</option>
+              <option value="avaluo">Solo avalúo (los documentos del valuador)</option>
+            </select>
+          </Campo>
+        </>
+      ) : (
+        <Campo etiqueta="Valor de compra" nota="Opcional">
+          <input type="number" step="0.01" min="0" name="valorCompra" className={`${CLASE_CAMPO} tabular`} />
+        </Campo>
+      )}
 
       <Campo etiqueta="Notas" nota="Opcional: vendedor, comprador, de dónde salió…" className="sm:col-span-2">
         <textarea name="notas" rows={3} maxLength={4000} className={CLASE_CAMPO} />

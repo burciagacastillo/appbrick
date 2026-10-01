@@ -24,6 +24,8 @@ function propiedadDePrueba(
     carpetaDrive: null,
 
     // --- Todo esto es confidencial y NO puede salir ---
+    modalidad: "propia",
+    cobroCliente: 45_000,
     valorCompra: 620_000,
     valorVentaEstimado: 980_000,
     valorVentaReal: null,
@@ -86,6 +88,9 @@ describe("aFichaPublica — lista blanca", () => {
     expect(serializada).not.toContain("620000");
     expect(serializada).not.toContain("381000");
     expect(serializada).not.toContain("150000");
+    // Lo que se le cobra al cliente de una externa
+    expect(serializada).not.toContain("45000");
+    expect(serializada).not.toContain("modalidad");
     // Notas internas y rutas del disco
     expect(serializada).not.toContain("Margen apretado");
     expect(serializada).not.toContain("C:/privado");

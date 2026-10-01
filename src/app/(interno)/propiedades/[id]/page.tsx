@@ -12,11 +12,21 @@ import { Paquetes } from "@/components/paquetes";
 import { TablaGastos } from "@/components/gastos";
 import { Publicacion } from "@/components/publicacion";
 import { Personas } from "@/components/personas";
+import { CamposDinero } from "@/components/campos-dinero";
 import { guardarPropiedad } from "@/acciones/propiedades";
 import { ETAPAS, TIPOS_PROPIEDAD, mxn, fechaCorta } from "@/lib/constants";
 import { exigirAdmin } from "@/lib/permisos";
 
 export const dynamic = "force-dynamic";
+
+/** Casa que no es de Erick: trámite, asesoría, avalúo o adecuaciones. */
+function InsigniaExterna() {
+  return (
+    <span className="rounded-full border border-slate-300 px-2.5 py-0.5 text-xs font-medium text-tenue">
+      Externa
+    </span>
+  );
+}
 
 const TABS = [
   { id: "expediente", label: "Expediente" },
@@ -58,6 +68,7 @@ export default async function DetallePropiedad({
 
   const p = await obtenerPropiedad(id);
   if (!p) notFound();
+  const externa = p.modalidad === "externa";
 
   // Para el buscador: solo lo necesario, nada de la persona ni de dinero.
   // (Los del cónyuge que no aplican no existen para el buscador, igual que en el expediente.)
@@ -96,6 +107,7 @@ export default async function DetallePropiedad({
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <h1 className="text-[28px] leading-tight font-bold tracking-tight">{p.nombre}</h1>
           <EtapaBadge id={p.etapa} />
+          {externa ? <InsigniaExterna /> : null}
         </div>
         {p.direccion || p.colonia ? (
           <p className="mt-1 text-sm text-tenue">
@@ -125,29 +137,51 @@ export default async function DetallePropiedad({
             {p.progreso.completos} de {p.progreso.total} · {p.progreso.revisar} por revisar
           </div>
         </Card>
-        <Stat
-          label="Compra"
-          valor={mxn(p.valorCompra)}
-          sub={p.fechaCompra ? fechaCorta(p.fechaCompra) : "Sin fecha"}
-        />
+        {externa ? (
+          <Stat
+            label="Lo que cobro"
+            valor={mxn(p.cobroCliente)}
+            sub={p.cobroCliente == null ? "Captúralo en Datos" : "Trámite, asesoría, adecuaciones"}
+          />
+        ) : (
+          <Stat
+            label="Compra"
+            valor={mxn(p.valorCompra)}
+            sub={p.fechaCompra ? fechaCorta(p.fechaCompra) : "Sin fecha"}
+          />
+        )}
         <Stat
           label="Gastado"
           valor={mxn(p.dinero.gastado)}
           sub={`${p.gastos.length} movimientos`}
         />
-        <Stat
-          label="Margen estimado"
-          valor={mxn(p.dinero.margen)}
-          insignia={
-            p.dinero.margen != null && p.valorCompra
-              ? `${p.dinero.margen >= 0 ? "+" : ""}${Math.round(
-                  (p.dinero.margen / (p.valorCompra + p.dinero.gastado)) * 100
-                )}%`
-              : undefined
-          }
-          tono={p.dinero.margen != null && p.dinero.margen < 0 ? "alerta" : "bien"}
-          sub={p.dinero.margen == null ? "Falta compra o venta estimada" : "Venta − compra − gastos"}
-        />
+        {externa ? (
+          <Stat
+            label="Utilidad estimada"
+            valor={mxn(p.dinero.margen)}
+            insignia={
+              p.dinero.margen != null && p.cobroCliente
+                ? `${Math.round((p.dinero.margen / p.cobroCliente) * 100)}%`
+                : undefined
+            }
+            tono={p.dinero.margen != null && p.dinero.margen < 0 ? "alerta" : "bien"}
+            sub={p.dinero.margen == null ? "Falta lo que cobras" : "Lo que cobro − gastos"}
+          />
+        ) : (
+          <Stat
+            label="Margen estimado"
+            valor={mxn(p.dinero.margen)}
+            insignia={
+              p.dinero.margen != null && p.valorCompra
+                ? `${p.dinero.margen >= 0 ? "+" : ""}${Math.round(
+                    (p.dinero.margen / (p.valorCompra + p.dinero.gastado)) * 100
+                  )}%`
+                : undefined
+            }
+            tono={p.dinero.margen != null && p.dinero.margen < 0 ? "alerta" : "bien"}
+            sub={p.dinero.margen == null ? "Falta compra o venta estimada" : "Venta − compra − gastos"}
+          />
+        )}
       </div>
 
       {/* Pestañas como control segmentado (sin JS: navegación por query string) */}
@@ -268,46 +302,18 @@ export default async function DetallePropiedad({
               />
             </label>
 
-            <label className="text-xs">
-              <span className="font-medium text-tenue">Valor de compra</span>
-              <input
-                type="number"
-                step="0.01"
-                name="valorCompra"
-                defaultValue={p.valorCompra ?? ""}
-                className={`${CLASE_CAMPO} tabular`}
-              />
-            </label>
-            <label className="text-xs">
-              <span className="font-medium text-tenue">Venta estimada</span>
-              <input
-                type="number"
-                step="0.01"
-                name="valorVentaEstimado"
-                defaultValue={p.valorVentaEstimado ?? ""}
-                className={`${CLASE_CAMPO} tabular`}
-              />
-            </label>
-            <label className="text-xs">
-              <span className="font-medium text-tenue">Venta real</span>
-              <input
-                type="number"
-                step="0.01"
-                name="valorVentaReal"
-                defaultValue={p.valorVentaReal ?? ""}
-                className={`${CLASE_CAMPO} tabular`}
-              />
-            </label>
-            <label className="text-xs">
-              <span className="font-medium text-tenue">Presupuesto de obra</span>
-              <input
-                type="number"
-                step="0.01"
-                name="presupuestoObra"
-                defaultValue={p.presupuestoObra ?? ""}
-                className={`${CLASE_CAMPO} tabular`}
-              />
-            </label>
+            {/* Propia o externa, y su dinero: componente de cliente que recibe
+                solo estos números. */}
+            <CamposDinero
+              modalidad={p.modalidad}
+              valores={{
+                cobroCliente: p.cobroCliente,
+                valorCompra: p.valorCompra,
+                valorVentaEstimado: p.valorVentaEstimado,
+                valorVentaReal: p.valorVentaReal,
+                presupuestoObra: p.presupuestoObra,
+              }}
+            />
 
             <label className="text-xs sm:col-span-2">
               <span className="font-medium text-tenue">

@@ -7,6 +7,8 @@ import {
   ESTADOS_TRAMITE,
   ESTADOS_CIVILES,
   REGIMENES,
+  MODALIDADES,
+  ROLES_PERSONA,
 } from "./constants";
 
 // Validación de todo lo que entra por formulario.
@@ -49,9 +51,14 @@ const fechaOpcional = z
   .transform((v) => (v && v.trim() ? new Date(`${v}T12:00:00`) : null))
   .refine((d) => d === null || !Number.isNaN(d.getTime()), "Fecha inválida");
 
-/** Checkbox de HTML: llega "on" o no llega. */
+/**
+ * Checkbox de HTML: llega "on" o no llega. Tiene que ser .optional(): en Zod 4
+ * una unión con z.undefined() no vuelve opcional la llave, y una casilla sin
+ * marcar (que el navegador ni manda) se rechazaba.
+ */
 const interruptor = z
-  .union([z.literal("on"), z.undefined(), z.string()])
+  .union([z.literal("on"), z.string()])
+  .optional()
   .transform((v) => v === "on");
 
 // --- Esquemas por acción ----------------------------------------------------
@@ -120,6 +127,8 @@ export const EsquemaPropiedad = z.object({
   colonia: opcional,
   etapa: enumDe(ETAPAS),
   tipo: enumDe(TIPOS_PROPIEDAD),
+  modalidad: enumDe(MODALIDADES),
+  cobroCliente: dineroOpcional,
   valorCompra: dineroOpcional,
   valorVentaEstimado: dineroOpcional,
   valorVentaReal: dineroOpcional,
@@ -137,7 +146,11 @@ export const EsquemaNuevaPropiedad = z.object({
   ciudad: textoCorto.optional().transform((v) => v || "Chihuahua"),
   tipo: enumDe(TIPOS_PROPIEDAD),
   etapa: enumDe(ETAPAS),
+  modalidad: enumDe(MODALIDADES).default("propia"),
+  /** Solo en externas: "avaluo" abre nada más lo que pide el valuador. */
+  expediente: z.enum(["completo", "avaluo"]).default("completo"),
   valorCompra: dineroOpcional,
+  cobroCliente: dineroOpcional,
   notas: opcionalLargo,
 });
 
@@ -156,7 +169,9 @@ export const EsquemaFechaDocumento = z.object({
 
 export const EsquemaInvitar = z.object({
   propiedadId: id,
-  rol: z.enum(["comprador", "vendedor"]),
+  rol: z.enum(["comprador", "vendedor", "contacto"]),
+  /** Que suba también los del otro lado (el contacto siempre sube los dos). */
+  ambos: interruptor,
   nombre: textoCorto.min(1, "Falta el nombre de la persona"),
   telefono: opcional,
   personaId: z.string().max(64).optional(),
@@ -266,6 +281,9 @@ const regimenCampo = z
 export const EsquemaPersona = z.object({
   personaId: id,
   propiedadId: id,
+  /** Solo en la ficha de un contacto: su vínculo con ESTA propiedad y quién es. */
+  vinculoId: z.string().max(64).optional(),
+  quienEs: opcional,
   nombre: textoCorto.min(1, "La persona necesita nombre"),
   telefono: opcional,
   email: opcional,
@@ -316,7 +334,9 @@ export const EsquemaVincular = z.object({
   propiedadId: id,
   nombre: textoCorto.min(1, "Falta el nombre"),
   telefono: opcional,
-  rol: z.enum(["vendedor", "comprador", "socio", "contratista", "notario", "valuador", "otro"]),
+  rol: enumDe(ROLES_PERSONA),
+  /** En un contacto: quién es ("Licenciada de la notaría 5"). Va en el vínculo. */
+  quienEs: opcional,
   nss: nssCampo,
   numeroCredito: opcional,
   estadoCivil: estadoCivilCampo,

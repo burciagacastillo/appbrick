@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { tramitesDelInvitado } from "./invitaciones";
+import { margenDe } from "./modalidad";
 
 /** Cuántos trámites del expediente van, sin contar los marcados "no aplica". */
 export type Progreso = {
@@ -15,7 +16,10 @@ export type ResumenDinero = {
   gastado: number;
   presupuestado: number;
   desviacion: number;
-  /** Margen estimado = valor de venta − compra − gastado. Null si falta el dato. */
+  /**
+   * Propia: venta estimada − compra − gastado. Externa: lo que cobra − gastado
+   * (utilidad). Null si falta el dato. Ver src/lib/modalidad.ts.
+   */
   margen: number | null;
 };
 
@@ -73,10 +77,7 @@ export async function listarPropiedades() {
         gastado: gasto,
         presupuestado: presupuesto,
         desviacion: gasto - presupuesto,
-        margen:
-          p.valorVentaEstimado != null && p.valorCompra != null
-            ? p.valorVentaEstimado - p.valorCompra - gasto
-            : null,
+        margen: margenDe(p, gasto),
       } satisfies ResumenDinero,
     };
   });
@@ -128,10 +129,7 @@ export async function obtenerPropiedad(id: string) {
       gastado,
       presupuestado,
       desviacion: gastado - presupuestado,
-      margen:
-        propiedad.valorVentaEstimado != null && propiedad.valorCompra != null
-          ? propiedad.valorVentaEstimado - propiedad.valorCompra - gastado
-          : null,
+      margen: margenDe(propiedad, gastado),
     } satisfies ResumenDinero,
   };
 }
@@ -296,11 +294,16 @@ export async function resumenGeneral() {
     (p) => p.etapa !== "concluida" && p.etapa !== "cancelada"
   );
 
-  const invertido = activas.reduce(
+  // Invertido, valor y margen son de las PROPIAS: en una externa no hay casa
+  // comprada, y sus gastos (adecuaciones) los cubre lo que se cobra.
+  const propias = activas.filter((p) => p.modalidad !== "externa");
+  const externas = activas.filter((p) => p.modalidad === "externa");
+
+  const invertido = propias.reduce(
     (s, p) => s + (p.valorCompra ?? 0) + p.dinero.gastado,
     0
   );
-  const valorEsperado = activas.reduce((s, p) => s + (p.valorVentaEstimado ?? 0), 0);
+  const valorEsperado = propias.reduce((s, p) => s + (p.valorVentaEstimado ?? 0), 0);
 
   const atorados = await tramitesAtorados();
 
@@ -310,6 +313,14 @@ export async function resumenGeneral() {
     invertido,
     valorEsperado,
     margenEsperado: valorEsperado > 0 ? valorEsperado - invertido : null,
+    externas: {
+      activas: externas.length,
+      cobro: externas.reduce((s, p) => s + (p.cobroCliente ?? 0), 0),
+      gastado: externas.reduce((s, p) => s + p.dinero.gastado, 0),
+      // Solo de las que tienen cobro capturado: sin él no hay utilidad que sumar.
+      utilidad: externas.reduce((s, p) => s + (p.dinero.margen ?? 0), 0),
+      sinCobro: externas.filter((p) => p.cobroCliente == null).length,
+    },
     tramitesPendientes: atorados.length,
     tramitesVencidos: atorados.filter((t) => t.vencido).length,
     pagosSinComprobante: atorados.filter((t) => t.pagoIncompleto).length,
