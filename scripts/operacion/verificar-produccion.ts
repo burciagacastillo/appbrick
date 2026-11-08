@@ -5,6 +5,8 @@
 // dirección de un archivo podría ver las INE de tus compradores.
 
 import "dotenv/config";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { crearPrisma } from "../../src/lib/db";
 import { cifrar, descifrar } from "../../src/lib/cripto";
@@ -48,6 +50,29 @@ async function main() {
       catalogo === CATALOGO.length
         ? "Completo"
         : `Hay ${catalogo}. Corre: npm run prod:migrar y npm run prod:sembrar`
+    );
+
+    // Migraciones: las carpetas de prisma/migrations contra lo que la base
+    // dice que corrió. Una fallida bloquea todas las publicaciones siguientes
+    // (Vercel corre `prisma migrate deploy` antes de construir).
+    const carpetas = readdirSync(join(process.cwd(), "prisma", "migrations"), { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+    const corridas = await db.$queryRaw<
+      { migration_name: string; finished_at: Date | null; rolled_back_at: Date | null; logs: string | null }[]
+    >`SELECT migration_name, finished_at, rolled_back_at, logs FROM _prisma_migrations ORDER BY started_at`;
+    const fallidas = corridas.filter((m) => !m.finished_at && !m.rolled_back_at);
+    const hechas = new Set(corridas.filter((m) => m.finished_at).map((m) => m.migration_name));
+    const pendientes = carpetas.filter((c) => !hechas.has(c));
+    anotar(
+      fallidas.length === 0 && pendientes.length === 0,
+      "Migraciones",
+      fallidas.length > 0
+        ? `FALLÓ ${fallidas.map((m) => `${m.migration_name}: ${(m.logs ?? "").split("\n").find((l) => l.trim()) ?? "sin detalle"}`).join(" · ")}`
+        : pendientes.length > 0
+          ? `Faltan ${pendientes.length}: ${pendientes.join(", ")}`
+          : `Las ${carpetas.length} corridas`
     );
 
     // Supabase abre la base a internet por su API (PostgREST) con la llave
