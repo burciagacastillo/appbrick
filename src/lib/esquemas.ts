@@ -10,6 +10,7 @@ import {
   MODALIDADES,
   ROLES_PERSONA,
 } from "./constants";
+import { diaValido, instanteDelDia } from "./agenda";
 
 // Validación de todo lo que entra por formulario.
 //
@@ -152,6 +153,47 @@ export const EsquemaNuevaPropiedad = z.object({
   valorCompra: dineroOpcional,
   cobroCliente: dineroOpcional,
   notas: opcionalLargo,
+});
+
+// --- Pasos y fechas clave (agenda) ------------------------------------------
+
+/**
+ * Un día de un <input type="date"> ("2026-11-08"), guardado a mediodía de
+ * CHIHUAHUA (instanteDelDia): así no se recorre de día aunque el servidor
+ * esté en UTC. Vacío = sin fecha.
+ */
+const diaOpcional = z
+  .string()
+  .trim()
+  .optional()
+  .refine((v) => !v || diaValido(v), "Esa fecha no existe")
+  .transform((v) => (v ? instanteDelDia(v) : null));
+
+/** "10:30". Vacío = todo el día. */
+const horaOpcional = z
+  .string()
+  .trim()
+  .optional()
+  .refine((v) => !v || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), "Hora inválida")
+  .transform((v) => v || null);
+
+/** Crear o editar un paso (con pasoId, edita). */
+export const EsquemaPaso = z.object({
+  propiedadId: id,
+  pasoId: z.string().max(64).optional().transform((v) => v || null),
+  titulo: textoCorto.min(1, "Escribe qué hay que hacer"),
+  fecha: diaOpcional,
+  hora: horaOpcional,
+  tramiteId: z.string().max(64).optional().transform((v) => v || null),
+});
+
+export const EsquemaPasoId = z.object({ pasoId: id });
+
+/** Las fechas de la propiedad que salen en la agenda. */
+export const EsquemaFechasClave = z.object({
+  propiedadId: id,
+  fechaFirmaProgramada: diaOpcional,
+  fechaCierreObjetivo: diaOpcional,
 });
 
 export const EsquemaRechazo = z.object({

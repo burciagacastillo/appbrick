@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Bath, BedDouble, Building2, MapPin, Ruler } from "lucide-react";
+import { ArrowRight, Bath, BedDouble, Building2, MapPin, Ruler } from "lucide-react";
 import { Barra, EtapaBadge } from "./ui";
 import { mxn } from "@/lib/constants";
+import { etiquetaPaso, hoy } from "@/lib/agenda";
 import type { PropiedadListada } from "@/lib/queries";
 
 // Tarjeta tipo galería para la vista INTERNA de propiedades. Enseña dinero
@@ -30,6 +31,8 @@ export function TarjetaPropiedad({
     metros != null ? { icono: Ruler, texto: `${numero(metros)} m²`, titulo: "Metros" } : null,
   ].filter((c) => c !== null);
   const margenNegativo = p.dinero.margen != null && p.dinero.margen < 0;
+  const siguiente = p.pasos.siguiente;
+  const cuando = siguiente ? etiquetaPaso(siguiente.dia, hoy()) : null;
 
   return (
     <Link
@@ -107,6 +110,17 @@ export function TarjetaPropiedad({
           </div>
           <Barra porcentaje={p.progreso.porcentaje} />
         </div>
+
+        {/* El siguiente paso (sección Pasos de la ficha). */}
+        {siguiente ? (
+          <p className={`mt-4 flex gap-1.5 text-xs ${cuando?.atrasado ? "text-rose-600" : "text-tinta"}`}>
+            <ArrowRight className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={2} />
+            <span className="min-w-0 truncate">
+              {siguiente.titulo}
+              {cuando ? <span className={cuando.atrasado ? "font-medium" : "text-tenue"}> · {cuando.texto}</span> : null}
+            </span>
+          </p>
+        ) : null}
 
         <div className="mt-4 flex items-center justify-between text-xs text-tenue">
           <span>

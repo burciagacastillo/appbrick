@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { tramitesDelInvitado } from "./invitaciones";
 import { margenDe } from "./modalidad";
+import { claveDia, type Evento } from "./agenda";
 
 /** Cuántos trámites del expediente van, sin contar los marcados "no aplica". */
 export type Progreso = {
@@ -47,12 +48,29 @@ function armarProgreso(porEstado: Map<string, number>): Progreso {
  * porcentaje.
  */
 export async function listarPropiedades() {
-  const [propiedades, tramites, gastos, presupuestos] = await Promise.all([
+  const [propiedades, tramites, gastos, presupuestos, pasosAbiertos] = await Promise.all([
     db.propiedad.findMany({ orderBy: [{ etapa: "asc" }, { nombre: "asc" }] }),
     db.tramite.groupBy({ by: ["propiedadId", "estado"], _count: { _all: true } }),
     db.gasto.groupBy({ by: ["propiedadId"], _sum: { monto: true } }),
     db.partidaPresupuesto.groupBy({ by: ["propiedadId"], _sum: { monto: true } }),
+    // En el orden en que tocan: el primero de cada propiedad es su "siguiente paso".
+    db.paso.findMany({
+      where: { hecho: false },
+      orderBy: [{ fecha: { sort: "asc", nulls: "last" } }, { creadoEn: "asc" }],
+      select: { propiedadId: true, titulo: true, fecha: true },
+    }),
   ]);
+
+  const pasos = new Map<string, { abiertos: number; siguiente: { titulo: string; dia: string | null } }>();
+  for (const paso of pasosAbiertos) {
+    const ya = pasos.get(paso.propiedadId);
+    if (ya) ya.abiertos++;
+    else
+      pasos.set(paso.propiedadId, {
+        abiertos: 1,
+        siguiente: { titulo: paso.titulo, dia: paso.fecha ? claveDia(paso.fecha) : null },
+      });
+  }
 
   const conteos = new Map<string, Map<string, number>>();
   for (const t of tramites) {
@@ -73,6 +91,7 @@ export async function listarPropiedades() {
     return {
       ...p,
       progreso: armarProgreso(conteos.get(p.id) ?? new Map()),
+      pasos: pasos.get(p.id) ?? { abiertos: 0, siguiente: null },
       dinero: {
         gastado: gasto,
         presupuestado: presupuesto,
@@ -103,6 +122,13 @@ export async function obtenerPropiedad(id: string) {
         orderBy: { fecha: "desc" },
       },
       presupuesto: true,
+      // Pendientes primero y en el orden en que tocan; los hechos al final.
+      pasos: {
+        include: {
+          tramite: { select: { estado: true, catalogo: { select: { numero: true, nombre: true } } } },
+        },
+        orderBy: [{ hecho: "asc" }, { fecha: { sort: "asc", nulls: "last" } }, { creadoEn: "asc" }],
+      },
       personas: { include: { persona: { include: { referencias: true } } } },
       fotos: { orderBy: [{ esPortada: "desc" }, { orden: "asc" }] },
       invitaciones: {
@@ -285,6 +311,127 @@ export async function egresosPorMes(meses = 12, ahora = new Date()): Promise<Mes
     inicio,
     total: suma.get(clave(inicio)) ?? 0,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Agenda
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que sale en la agenda, solo de propiedades activas:
+ *  · pasos pendientes (con fecha, sin fecha y atrasados) y los hechos que
+ *    caen en el rango (el calendario los enseña tachados);
+ *  · firma programada y cierre objetivo que caen en el rango;
+ *  · documentos que se vencen hasta el final del rango (también los ya
+ *    vencidos): solo el más reciente de cada trámite — si ya subiste un
+ *    recibo nuevo, el viejo no cuenta.
+ * Los días se calculan en Chihuahua (claveDia), no en la hora del servidor.
+ */
+export async function eventosAgenda(rango: { desde: string; hasta: string }): Promise<Evento[]> {
+  const activa = { etapa: { notIn: ["concluida", "cancelada"] } };
+
+  const [pasos, propiedades, documentos] = await Promise.all([
+    db.paso.findMany({
+      where: { propiedad: activa },
+      select: {
+        id: true,
+        titulo: true,
+        fecha: true,
+        hora: true,
+        hecho: true,
+        propiedadId: true,
+        propiedad: { select: { nombre: true } },
+      },
+    }),
+    db.propiedad.findMany({
+      where: {
+        ...activa,
+        OR: [{ fechaFirmaProgramada: { not: null } }, { fechaCierreObjetivo: { not: null } }],
+      },
+      select: { id: true, nombre: true, notaria: true, fechaFirmaProgramada: true, fechaCierreObjetivo: true },
+    }),
+    db.documento.findMany({
+      where: {
+        vigenciaHasta: { not: null },
+        estado: { not: "rechazado" },
+        tramite: { is: { estado: { not: "no_aplica" } } },
+        propiedad: activa,
+      },
+      orderBy: { creadoEn: "desc" },
+      select: {
+        id: true,
+        tramiteId: true,
+        vigenciaHasta: true,
+        propiedadId: true,
+        propiedad: { select: { nombre: true } },
+        tramite: { select: { catalogo: { select: { nombre: true } } } },
+      },
+    }),
+  ]);
+
+  const enRango = (dia: string) => dia >= rango.desde && dia <= rango.hasta;
+  const eventos: Evento[] = [];
+
+  for (const p of pasos) {
+    const dia = p.fecha ? claveDia(p.fecha) : null;
+    if (p.hecho && !(dia && enRango(dia))) continue;
+    eventos.push({
+      clave: `paso-${p.id}`,
+      tipo: "paso",
+      dia,
+      hora: p.hora,
+      titulo: p.titulo,
+      propiedadId: p.propiedadId,
+      propiedadNombre: p.propiedad.nombre,
+      pasoId: p.id,
+      hecho: p.hecho,
+    });
+  }
+
+  for (const p of propiedades) {
+    if (p.fechaFirmaProgramada && enRango(claveDia(p.fechaFirmaProgramada))) {
+      eventos.push({
+        clave: `firma-${p.id}`,
+        tipo: "firma",
+        dia: claveDia(p.fechaFirmaProgramada),
+        hora: null,
+        titulo: p.notaria ? `Firma en ${p.notaria}` : "Firma en notaría",
+        propiedadId: p.id,
+        propiedadNombre: p.nombre,
+      });
+    }
+    if (p.fechaCierreObjetivo && enRango(claveDia(p.fechaCierreObjetivo))) {
+      eventos.push({
+        clave: `cierre-${p.id}`,
+        tipo: "cierre",
+        dia: claveDia(p.fechaCierreObjetivo),
+        hora: null,
+        titulo: "Cierre objetivo",
+        propiedadId: p.id,
+        propiedadNombre: p.nombre,
+      });
+    }
+  }
+
+  // Vienen del más nuevo al más viejo: el primero de cada trámite es el que vale.
+  const vistos = new Set<string>();
+  for (const d of documentos) {
+    if (!d.tramiteId || vistos.has(d.tramiteId)) continue;
+    vistos.add(d.tramiteId);
+    const dia = claveDia(d.vigenciaHasta!);
+    if (dia > rango.hasta) continue;
+    eventos.push({
+      clave: `vence-${d.id}`,
+      tipo: "vence",
+      dia,
+      hora: null,
+      titulo: `Vence: ${d.tramite?.catalogo.nombre ?? "documento"}`,
+      propiedadId: d.propiedadId,
+      propiedadNombre: d.propiedad.nombre,
+    });
+  }
+
+  return eventos;
 }
 
 /** Números de arriba del tablero. */

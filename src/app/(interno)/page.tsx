@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { CircleCheck, CircleSlash, FolderOpen } from "lucide-react";
-import { resumenGeneral, tramitesAtorados, listarPropiedades } from "@/lib/queries";
+import { resumenGeneral, tramitesAtorados, listarPropiedades, eventosAgenda } from "@/lib/queries";
+import { FilaEvento } from "@/components/agenda";
+import { armarSemana, etiquetaDia, hoy, sumarDias } from "@/lib/agenda";
 import {
   Card,
   CardHeader,
@@ -24,11 +26,16 @@ const MOSTRAR = 12;
 export default async function Tablero() {
   await exigirAdmin();
 
-  const [resumen, atorados, propiedades] = await Promise.all([
+  const hoyDia = hoy();
+  const [resumen, atorados, propiedades, eventos] = await Promise.all([
     resumenGeneral(),
     tramitesAtorados(),
     listarPropiedades(),
+    eventosAgenda({ desde: hoyDia, hasta: sumarDias(hoyDia, 6) }),
   ]);
+  // Lo más próximo de la semana; la agenda completa está en /agenda.
+  const semana = armarSemana(eventos, hoyDia);
+  const proximos = semana.dias.flatMap((d) => d.eventos).slice(0, 6);
 
   const activas = propiedades.filter(
     (p) => p.etapa !== "concluida" && p.etapa !== "cancelada"
@@ -107,6 +114,36 @@ export default async function Tablero() {
           ) : null}
         </Card>
       ) : null}
+
+      <Card>
+        <CardHeader
+          titulo="Esta semana"
+          extra={
+            <Link href="/agenda" className="text-xs text-tenue hover:text-tinta">
+              Ver agenda →
+            </Link>
+          }
+        />
+        {semana.atrasados.length > 0 ? (
+          <Link
+            href="/agenda"
+            className="mx-6 mb-2 block rounded-xl bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 hover:bg-rose-100"
+          >
+            {semana.atrasados.length} {semana.atrasados.length === 1 ? "pendiente atrasado" : "pendientes atrasados"} →
+          </Link>
+        ) : null}
+        {proximos.length === 0 ? (
+          <p className="px-6 pb-5 text-sm text-tenue">
+            Nada programado en los próximos 7 días. Agrega pasos con fecha desde cada propiedad.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 px-6 pb-3">
+            {proximos.map((e) => (
+              <FilaEvento key={e.clave} e={e} cuando={e.dia ? etiquetaDia(e.dia, hoyDia) : undefined} />
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <Card>
         <CardHeader

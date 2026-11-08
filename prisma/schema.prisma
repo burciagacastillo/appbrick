@@ -302,6 +302,7 @@ model Propiedad {
   personas    PropiedadPersona[]
   invitaciones Invitacion[]
   accesos     AccesoAyudante[]
+  pasos       Paso[]
 
   creadoEn      DateTime @default(now())
   actualizadoEn DateTime @updatedAt
@@ -398,6 +399,7 @@ model Tramite {
   notas String?
 
   documentos       Documento[]
+  pasos            Paso[]
   propiedad        Propiedad       @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
   catalogo         TramiteCatalogo @relation(fields: [catalogoId], references: [id])
   actualizadoPor   Usuario?        @relation("TramiteActualizadoPor", fields: [actualizadoPorId], references: [id])
@@ -505,4 +507,31 @@ model PartidaPresupuesto {
   propiedad Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
 
   @@unique([propiedadId, categoria])
+}
+
+/// Un pendiente de una propiedad ("llevar plano a catastro", "cita en notaría").
+/// Pedido de Erick del 08/11/2026: algo tipo Asana/Monday pero ligero. El
+/// "siguiente paso" de una propiedad es el pendiente más próximo; la agenda
+/// junta los de todas. Ver src/lib/agenda.ts.
+model Paso {
+  id          String    @id @default(cuid())
+  propiedadId String
+  titulo      String
+  /// El día en que toca, guardado a mediodía de Chihuahua. Sin fecha = "cuando se pueda".
+  fecha       DateTime?
+  /// "10:30" si tiene hora (una cita); vacío si es todo el día.
+  hora        String?
+  hecho       Boolean   @default(false)
+  hechoEn     DateTime?
+  /// Opcional: el trámite al que se refiere (p. ej. el 29, plano catastral).
+  tramiteId   String?
+
+  propiedad Propiedad @relation(fields: [propiedadId], references: [id], onDelete: Cascade)
+  tramite   Tramite?  @relation(fields: [tramiteId], references: [id], onDelete: SetNull)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([propiedadId, hecho])
+  @@index([fecha])
 }

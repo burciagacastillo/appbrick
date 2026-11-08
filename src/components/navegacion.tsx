@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   BellRing,
   Building2,
+  CalendarDays,
   FileCheck2,
   FolderOpen,
   HousePlus,
@@ -27,6 +28,7 @@ type Pestana = { href: string; label: string; icono: LucideIcon };
 const ADMIN: Pestana[] = [
   { href: "/", label: "Tablero", icono: LayoutGrid },
   { href: "/propiedades", label: "Propiedades", icono: Building2 },
+  { href: "/agenda", label: "Agenda", icono: CalendarDays },
   { href: "/revisar", label: "Revisar", icono: FileCheck2 },
   { href: "/recordatorios", label: "Recordatorios", icono: BellRing },
   { href: "/gastos", label: "Gastos", icono: Wallet },

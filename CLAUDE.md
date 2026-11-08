@@ -95,7 +95,7 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 
 ## Pruebas
 
-`npm test` — 208 pruebas sobre lo que no se puede dejar sin red:
+`npm test` — 228 pruebas sobre lo que no se puede dejar sin red:
 
 | Archivo | Qué protege |
 |---|---|
@@ -115,6 +115,8 @@ hacía: la contraseña sola bajaba documentos antes de activar el 2FA).
 | `seguridad-bd.test.ts` | Que toda tabla tenga RLS: sin eso, la API pública de Supabase la deja leer, cambiar y borrar a cualquiera |
 | `modalidad.test.ts` | Propia o externa: el margen de una externa es lo que cobra − gastos, y "solo avalúo" abre exactamente lo del valuador |
 | `acciones/externas.test.ts` | Las acciones contra la base: alta de una externa, el contacto y su "quién es", y las notas de la persona (no se guardaban) |
+| `agenda.test.ts` | Días de Chihuahua aunque el servidor esté en UTC, fechas que no existen ("31 de febrero"), "Esta semana" y la cuadrícula del mes |
+| `acciones/pasos.test.ts` | Pasos contra la base (trámite y paso de otra propiedad rechazados) y lo que sale en la agenda: solo el recibo vigente de cada trámite, nada de concluidas ni de "no aplica" |
 
 Escribirlas encontró **tres bugs de verdad**: el limitador borraba su propio
 contador y nunca frenaba; el esquema de login rechazaba correos internos
@@ -318,6 +320,34 @@ otro lado" (`bloquesDeInvitacion()`, bloques `"A,B"`). El portal los agrupa
 en "Documentos del vendedor / del comprador" para no confundir dos INE, y el
 tope de archivos del link se multiplica por bloque.
 
+## Pasos, agenda y tablero por fase (desde el 08/11/2026)
+
+Pedido de Erick: algo "tipo Asana o Monday" pero en término medio, ni muy
+fácil ni muy pesado. Tres piezas:
+
+- **Pasos** (`model Paso`, sección Pasos de la ficha): pendientes con fecha y
+  hora opcionales, ligables a un trámite. El primero pendiente es el
+  **siguiente paso**: sale en la galería, en el tablero por fase y en la
+  agenda. A propósito NO lleva responsable, prioridad ni subtareas (lo que se
+  quitó con "Detalles" el 24/09 por pesado). Al lado, **fechas clave**: firma
+  programada y cierre objetivo, y los documentos por vencer (30 días).
+- **Agenda** (`/agenda`): "Esta semana" (atrasados, hoy y 6 días, pendientes
+  sin fecha) y "Mes" (cuadrícula; lista en el celular). El inicio tiene una
+  tarjeta "Esta semana". Junta pasos, firma, cierre y vencimientos de las
+  propiedades activas (`eventosAgenda()`); de cada trámite vale solo el
+  documento más reciente — un recibo ya reemplazado no avisa.
+- **Propiedades → Por fase** (`tablero-fases.tsx`): columnas por fase;
+  arrastrar cambia la fase con `cambiarEtapa` (bitácora incluida). En el
+  celular no se arrastra: cada tarjeta trae "Mover a…". Columnas vacías
+  quedan delgadas; concluidas, solo las 6 más recientes. Recibe solo lo que
+  pinta (sin dinero ni personas).
+
+**Los días son de Chihuahua** (`lib/agenda.ts`): Vercel corre en UTC y a las
+6 de la tarde de Chihuahua ya es mañana en UTC. Un día se maneja como texto
+`"2026-11-08"` y se guarda a mediodía de Chihuahua (`instanteDelDia`).
+`diaValido()` existe porque JavaScript convierte "2026-02-31" en el 3 de
+marzo sin avisar (lo encontró la prueba).
+
 ## Fases de una propiedad
 
 Definidas por Erick el 23/09/2026 en `ETAPAS` (`lib/constants.ts`): adquisición,
@@ -405,7 +435,7 @@ npm run prod:usuario     # su cuenta
 
 ```bash
 npm run dev        # servidor de desarrollo
-npm test           # las 208 pruebas
+npm test           # las 228 pruebas
 npm run lint       # cero avisos; mantenerlo así
 npm run usuario    # alta de admin o ayudante (la contraseña la teclea él)
 npm run rescan     # re-escanea las carpetas y actualiza el expediente

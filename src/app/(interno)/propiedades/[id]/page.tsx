@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { Card, CardHeader, EtapaBadge, Barra, CLASE_CAMPO, Stat } from "@/components/ui";
 import { Expediente } from "@/components/expediente";
 import { LineaDeFases } from "@/components/fases";
+import { PasosPropiedad } from "@/components/pasos";
 import { DatosClave } from "@/components/datos-clave";
 import { esDeConyuge } from "@/lib/conyuge";
 import { BuscadorExpediente, type ItemBuscable } from "@/components/buscador-expediente";
@@ -122,6 +123,9 @@ export default async function DetallePropiedad({
       <BuscadorExpediente propiedadId={p.id} items={buscables} />
 
       <LineaDeFases propiedadId={p.id} actual={p.etapa} />
+
+      {/* Qué sigue: pasos con fecha, fechas clave y documentos por vencer. */}
+      <PasosPropiedad propiedad={p} />
 
       {/* Resumen rápido */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
